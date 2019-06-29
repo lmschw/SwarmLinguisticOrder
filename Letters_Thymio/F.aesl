@@ -6,7 +6,7 @@
 
 
 <!--list of constants-->
-<constant value="65" name="value"/>
+<constant value="70" name="value"/>
 
 
 <!--show keywords state-->
@@ -29,62 +29,62 @@ call prox.comm.enable(1)
 
 # ONLY THIS PART IS LETTER SPECIFIC
 # initializing the context frequencies []a. abc + space
-prev[0] = 0
-prev[1] = 24
-prev[2] = 66
-prev[3] = 18
-prev[4] = 106
-prev[5] = 26
-prev[6] = 23
-prev[7] = 38
-prev[8] = 36
-prev[9] = 2
-prev[10] = 2
-prev[11] = 65
-prev[12] = 58
-prev[13] = 48
-prev[14] = 10
-prev[15] = 48
+prev[0] = 48
+prev[1] = 0
+prev[2] = 0
+prev[3] = 6
+prev[4] = 111
+prev[5] = 84
+prev[6] = 0
+prev[7] = 0
+prev[8] = 99
+prev[9] = 0
+prev[10] = 3
+prev[11] = 33
+prev[12] = 6
+prev[13] = 51
+prev[14] = 57
+prev[15] = 3
 prev[16] = 0
-prev[17] = 114
-prev[18] = 24
-prev[19] = 70
-prev[20] = 22
-prev[21] = 18
-prev[22] = 18
-prev[23] = 3
-prev[24] = 0
+prev[17] = 21
+prev[18] = 21
+prev[19] = 3
+prev[20] = 15
+prev[21] = 0
+prev[22] = 3
+prev[23] = 0
+prev[24] = 3
 prev[25] = 0
-prev[26] = 148
+prev[26] = 429
 
 # initializing the context frequencies a[]. abc + space
-next[0] = 0
-next[1] = 30
-next[2] = 60
-next[3] = 48
-next[4] = 0
-next[5] = 10
-next[6] = 32
-next[7] = 2
-next[8] = 46
-next[9] = 1
-next[10] = 12 
-next[11] = 140
-next[12] = 26
-next[13] = 132
-next[14] = 0
-next[15] = 35
+next[0] = 120
+next[1] = 0
+next[2] = 0
+next[3] = 0
+next[4] = 148
+next[5] = 84
+next[6] = 0
+next[7] = 0
+next[8] = 172
+next[9] = 0
+next[10] = 0 
+next[11] = 57
+next[12] = 0 
+next[13] = 0
+next[14] = 132
+next[15] = 0
 next[16] = 0
-next[17] = 123 
-next[18] = 63 
-next[19] = 162 
-next[20] = 10
-next[21] = 12
-next[22] = 8 
-next[23] = 2
-next[24] = 21 
-next[25] = 2
-next[26] = 10
+next[17] = 69 
+next[18] = 0
+next[19] = 48
+next[20] = 84
+next[21] = 0
+next[22] = 0 
+next[23] = 0
+next[24] = 15 
+next[25] = 0
+next[26] = 66
 
 timer.period[0] = t0period
 timer.period[1] = restperiod
