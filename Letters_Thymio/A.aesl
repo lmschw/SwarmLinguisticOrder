@@ -1,0 +1,125 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="65" name="value"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="1" name="thymio-II"># variable declarations
+var prev[27]
+var next[27]
+var happiness = 0 # how happy the robot is in its current position
+var change = 0 # used as boolean. has anything been changed?
+var before = -1 # value of the robot behind
+var after = -1 # value of the robot in front
+call prox.comm.enable(1)
+
+# ONLY THIS PART IS LETTER SPECIFIC
+# initializing the context frequencies []a. abc + space
+prev[0] = 0
+prev[1] = 37
+prev[2] = 97
+prev[3] = 28
+prev[4] = 159
+prev[5] = 40
+prev[6] = 35
+prev[7] = 58
+prev[8] = 55
+prev[9] = 2
+prev[10] = 3
+prev[11] = 96
+prev[12] = 87
+prev[13] = 72
+prev[14] = 16
+prev[15] = 71
+prev[16] = 0
+prev[17] = 171
+prev[18] = 36
+prev[19] = 105
+prev[20] = 33
+prev[21] = 27
+prev[22] = 28
+prev[23] = 5
+prev[24] = 1
+prev[25] = 1
+prev[26] = 214
+
+# initializing the context frequencies a[]. abc + space
+next[0] = 0
+next[1] = 46
+next[2] = 90
+next[3] = 73
+next[4] = 1
+next[5] = 14
+next[6] = 48
+next[7] = 3
+next[8] = 69
+next[9] = 2
+next[10] = 19 
+next[11] = 209
+next[12] = 37 
+next[13] = 197
+next[14] = 1
+next[15] = 52
+next[16] = 1
+next[17] = 183 
+next[18] = 93 
+next[19] = 242 
+next[20] = 16
+next[21] = 18
+next[22] = 13 
+next[23] = 4
+next[24] = 32 
+next[25] = 4
+next[26] = 15
+
+
+# this subroutine updates the happiness value of the robot according to its neighbours and if any changes have been made to those neighbours. If the happiness value has already been below 100 before, the robot moves away
+
+sub happycheck
+ if change == 0 then
+ if happiness > 100  then
+ 	happiness = happiness-20
+ else
+ 	motor.left.target = 200
+ 	motor.right.target = 200
+ end
+ 	
+ else
+ 	if before != -1 and after != -1 then
+ 		happiness = prev[before-65] + next[after-65]
+ 	elseif after != -1 then
+ 		happiness = next[after-65]
+ 	elseif before != -1 then
+ 		happiness = prev[before-65]
+ 	else
+ 		happiness = 0
+ 	end
+ end
+ 
+ if happiness &lt; 100 then
+ 	call leds.top(32,0,0)
+ elseif happiness &lt; 200 then
+ 	call leds.top(32,32,0)
+ else
+ 	call leds.top(0,32,0)
+ end
+
+# when the robot receives a new value, it updates its before and after values and calls the happycheck subroutine 
+# TODO: ADD DIRECTION DISCRIMINATION
+onevent prox.comm
+	after = prox.comm.rx
+	callsub happycheck
+</node>
+
+
+</network>
