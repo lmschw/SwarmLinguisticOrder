@@ -21,6 +21,10 @@ var happiness = 0 # how happy the robot is in its current position
 var change = 0 # used as boolean. has anything been changed?
 var before = -1 # value of the robot behind
 var after = -1 # value of the robot in front
+var t0period = 500
+var restperiod = 100
+var moveperiod = 300
+var direction = 0 # 0 for right, 1 for left
 call prox.comm.enable(1)
 
 # ONLY THIS PART IS LETTER SPECIFIC
@@ -82,6 +86,8 @@ next[24] = 32
 next[25] = 4
 next[26] = 15
 
+timer.period[0] = t0period
+timer.period[1] = restperiod
 
 # this subroutine updates the happiness value of the robot according to its neighbours and if any changes have been made to those neighbours. If the happiness value has already been below 100 before, the robot moves away
 
@@ -93,20 +99,25 @@ sub happycheck
  	motor.left.target = 200
  	motor.right.target = 200
  end
- 	
+ # if the robot has two neighbours, it does the sum.
+ # if the robot only has one neighbour, the other side is considered an empty space
+ # if the robot does not have neighbours, happiness = 0	
  else
  	if before != -1 and after != -1 then
  		happiness = prev[before-65] + next[after-65]
  	elseif after != -1 then
- 		happiness = next[after-65]
+ 		happiness = prev[26] + next[after-65]
  	elseif before != -1 then
- 		happiness = prev[before-65]
+ 		happiness = prev[before-65] + next[26]
  	else
  		happiness = 0
  	end
  end
  
- if happiness &lt; 100 then
+ # blue if no neighbours, red if unhappy enough to walk away, yellow if unhappy but okay, green if happy
+ if happiness == 0 then
+ 	call leds.top(0,0,32)
+ elseif happiness &lt; 100 then
  	call leds.top(32,0,0)
  elseif happiness &lt; 200 then
  	call leds.top(32,32,0)
@@ -115,11 +126,34 @@ sub happycheck
  end
 
 # when the robot receives a new value, it updates its before and after values and calls the happycheck subroutine 
-# TODO: ADD DIRECTION DISCRIMINATION
 onevent prox.comm
 	after = prox.comm.rx
+	change = 1
 	callsub happycheck
-</node>
+
+# every time the timer reaches 0, the happiness value is reduced by 20 by calling the happycheck subroutine
+onevent timer0
+	change = 0
+	callsub happycheck
+
+# timer1 does the direction discrimination. It makes sure that only one robot is close enough to communicate by slowly oscillating between two poles: right and left	
+onevent timer1
+	if timer.period[1] == restperiod then
+		if direction == 0 then
+			motor.left.target = -200
+			motor.right.target = -200
+			direction = 1
+		else
+			motor.left.target = 200
+			motor.right.target = 200
+			direction = 0
+		end
+		timer.period[1] = moveperiod
+	else
+		motor.left.target = 0
+		motor.right.target = 0
+		timer.period[1] = restperiod
+	end</node>
 
 
 </network>
