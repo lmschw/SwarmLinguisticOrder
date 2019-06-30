@@ -14,7 +14,7 @@
 
 
 <!--node thymio-II-->
-<node nodeId="1" name="thymio-II"># variable declarations
+<node nodeId="2" name="thymio-II"># variable declarations
 var prev[27]
 var next[27]
 var happiness = 0 # how happy the robot is in its current position
@@ -93,7 +93,7 @@ timer.period[1] = restperiod
 
 sub happycheck
  if change == 0 then
- if happiness > 100  then
+ if happiness > 50  then
  	happiness = happiness-20
  else
  	motor.left.target = 200
@@ -101,7 +101,7 @@ sub happycheck
  end
  # if the robot has two neighbours, it does the sum.
  # if the robot only has one neighbour, the other side is considered an empty space
- # if the robot does not have neighbours, happiness = 0	
+ # if the robot does not have neighbours, happiness = -1
  else
  	if before != -1 and after != -1 then
  		happiness = prev[before-65] + next[after-65]
@@ -110,16 +110,16 @@ sub happycheck
  	elseif before != -1 then
  		happiness = prev[before-65] + next[26]
  	else
- 		happiness = 0
+ 		happiness = -1
  	end
  end
  
  # blue if no neighbours, red if unhappy enough to walk away, yellow if unhappy but okay, green if happy
- if happiness == 0 then
+ if happiness == -1 then
  	call leds.top(0,0,32)
- elseif happiness &lt; 100 then
+ elseif happiness &lt; 50 then
  	call leds.top(32,0,0)
- elseif happiness &lt; 200 then
+ elseif happiness &lt; 75 then
  	call leds.top(32,32,0)
  else
  	call leds.top(0,32,0)
