@@ -1,0 +1,72 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+<event name="new_value" size="1"/>
+<event name="other_value" size="1"/>
+<constant name="id" value="0"/>
+<constant name="total_number_of_robots" value="3"/>
+<constant name="value" value="65"/>
+
+
+<!--node A auf DESKTOP-410TVVP - 30884-->
+<node name="A auf DESKTOP-410TVVP - 30884" nodeId="{3811c31f-d6c9-4c72-9897-d80395801359}"><![CDATA[	
+# initialize
+var counter = 0
+var local_counter = id
+var prev = 0
+var next = 0
+
+timer.period[0] = 100
+
+call leds.top(0,0,0)
+
+call prox.comm.enable(1)
+
+
+# communication is reenabled using a timer
+onevent timer0
+	call prox.comm.enable(1)
+
+# if communication is enabled, the robot waits until id == counter, then emits an interrupt to all robots but one until it figures out which one sends the value
+
+onevent prox
+	if (id == counter)  then
+		local_counter = ((local_counter + 1) % total_number_of_robots)
+		emit other_value  local_counter
+	end
+
+
+# if a value is received, checks against own id. If same, emit event with value
+onevent other_value
+	if  event.args[0] == id then
+		emit new_value value
+	else
+		call prox.comm.enable(0)
+		
+	end
+	
+onevent new_value
+	if event.args[0] > 65 then
+	#TODO figure out if anything changes
+		if (prox.horizontal[1] > prox.horizontal[5]) then
+			next = event.args[0]
+			counter = (counter + 1) % total_number_of_robots
+			call leds.top(32, 0, 0) #green
+		elseif (prox.horizontal[1] == prox.horizontal[5]) then
+			local_counter = ((local_counter + 1) % total_number_of_robots)
+			call leds.top(32,0,0) #red
+			if local_counter != id  then
+				emit other_value local_counter
+			end
+		else
+			prev = event.args[0]
+			call leds.top(0,0,32) #blue
+			counter = (counter + 1) % total_number_of_robots
+
+		end
+	end]]></node>
+
+
+</network>
