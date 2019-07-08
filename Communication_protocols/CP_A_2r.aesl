@@ -1,0 +1,56 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--node Thymio-II Wireless-->
+<node name="Thymio-II Wireless" nodeId="{9b076acb-1df3-4af6-9f4f-3c565a7636c7}"><![CDATA[var prev = 0
+var next = 0
+var temp = 0
+var value = 65
+
+call leds.top(0,0,0)
+
+onevent prox
+	if prox.horizontal[2] > 2000 or prox.horizontal[5] > 2000 then
+		call prox.comm.enable(1)
+		prox.comm.tx = value
+	end
+	
+onevent prox.comm
+	if prox.horizontal[2] > 2000 and prox.comm.rx == 66 then
+		call leds.top(32,0,0)
+	elseif prox.horizontal[5] > 2000 and prox.comm.rx == 66 then
+		call leds.top(0,0,32)
+	else
+		call leds.top(32,32,0)
+	end]]></node>
+
+
+<!--node Thymio-II Wireless-->
+<node name="Thymio-II Wireless" nodeId="{e3a70a55-2fd7-45e2-a654-405082f58ff2}"><![CDATA[var prev = 0
+var next = 0
+var temp = 0
+var value = 66
+
+call leds.top(0,0,0)
+
+onevent prox
+	if prox.horizontal[2] > 2000 or prox.horizontal[5] > 2000 then
+		call prox.comm.enable(1)
+		prox.comm.tx = value
+	end
+	
+onevent prox.comm
+	if prox.horizontal[2] > 2000 and prox.comm.rx == 66 then
+		call leds.top(32,0,0)
+	elseif prox.horizontal[5] > 2000 and prox.comm.rx == 66 then
+		call leds.top(0,0,32)
+	else
+		call leds.top(32,32,0)
+	end]]></node>
+
+
+</network>

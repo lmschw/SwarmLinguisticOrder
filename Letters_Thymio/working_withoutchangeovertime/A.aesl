@@ -1,0 +1,167 @@
+var value = 65
+var id = 0
+var nextval = 0
+var prevval = 0
+var change
+var happiness = -1
+
+var prev[27]
+var next[27]
+
+# initializing the context frequencies []a. abc + space
+prev[0] = 0
+prev[1] = 24
+prev[2] = 66
+prev[3] = 18
+prev[4] = 106
+prev[5] = 26
+prev[6] = 23
+prev[7] = 38
+prev[8] = 36
+prev[9] = 2
+prev[10] = 2
+prev[11] = 65
+prev[12] = 58
+prev[13] = 48
+prev[14] = 10
+prev[15] = 48
+prev[16] = 0
+prev[17] = 114
+prev[18] = 24
+prev[19] = 70
+prev[20] = 22
+prev[21] = 18
+prev[22] = 18
+prev[23] = 3
+prev[24] = 0
+prev[25] = 0
+prev[26] = 148
+
+# initializing the context frequencies a[]. abc + space
+next[0] = 0
+next[1] = 30
+next[2] = 60
+next[3] = 48
+next[4] = 0
+next[5] = 10
+next[6] = 32
+next[7] = 2
+next[8] = 46
+next[9] = 1
+next[10] = 12 
+next[11] = 140
+next[12] = 26
+next[13] = 132
+next[14] = 0
+next[15] = 35
+next[16] = 0
+next[17] = 123 
+next[18] = 63 
+next[19] = 162 
+next[20] = 10
+next[21] = 12
+next[22] = 8 
+next[23] = 2
+next[24] = 21 
+next[25] = 2
+next[26] = 10
+
+call leds.top(0,0,0)
+call prox.comm.enable(1)
+
+
+onevent buttons
+	if (button.forward == 1) then
+		call leds.top(32,15,32) #purple
+	end
+
+onevent prox
+	if id==0 then
+		callsub comm
+	end
+	if id !=0 then
+		emit neighbour_value [id, value]
+	end
+	
+		if prox.horizontal[2] ==0 and (prox.horizontal[5] ==0  or prox.horizontal[6] == 0) then
+		nextval = 0
+		prevval = 0
+		emit recount
+	elseif prox.horizontal[2] == 0 then
+		nextval = 0
+		emit recount
+	elseif  prox.horizontal[5] == 0 or prox.horizontal[6] == 0 then
+		prevval = 0
+		emit recount
+	end
+	
+	callsub happycheck
+
+	if happiness == -1 then
+		call leds.top(0,0,32)
+	elseif  happiness > 200 then
+		call leds.top(0,32,0)
+	elseif  happiness > 100 then
+		call leds.top(32,32,0)
+	else
+		call leds.top(32,0,0)
+	end
+	
+	
+onevent prox.comm
+	if id == 0 and prox.comm.rx != 0 then
+		id = prox.comm.rx + 1
+		prox.comm.tx = id
+	end
+	if prox.comm.rx != id-1 then
+		if  prox.comm.rx != id+1 then
+					emit recount
+		end
+	end
+
+onevent neighbour_value
+	if id != 0 then
+		if event.args[0] == id-1 then
+			prevval = event.args[1]
+		elseif  event.args[0] == id+1 then
+			nextval = event.args[1]
+		end
+	end
+	
+
+sub comm
+	if prox.horizontal[2] > 2000 and (prox.horizontal[5] == 0 or prox.horizontal[6] == 0) then
+		id = 1
+		prox.comm.tx = id
+	else
+		id = 0
+	end
+	change = 1
+
+onevent recount
+	id = 0
+	callsub comm
+	
+	
+	sub happycheck
+ if change == 0 then
+ if happiness > 50  then
+ 	happiness = happiness-20
+ else
+ 	motor.left.target = 200
+ 	motor.right.target = 200
+ end
+ # if the robot has two neighbours, it does the sum.
+ # if the robot only has one neighbour, the other side is considered an empty space
+ # if the robot does not have neighbours, happiness = -1
+ else
+ 	if prevval != 0 and nextval != 0 then
+ 		happiness = prev[prevval-65] + next[nextval-65]
+ 	elseif nextval != 0 then
+ 		happiness = prev[26] + next[nextval-65]
+ 	elseif prevval != 0 then
+ 		happiness = prev[prevval-65] + next[26]
+ 	else
+ 		happiness = -1
+ 	end
+ end

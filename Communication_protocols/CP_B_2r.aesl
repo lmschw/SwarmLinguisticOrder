@@ -1,0 +1,64 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+<constant name="value" value="66"/>
+
+
+<!--node A auf DESKTOP-410TVVP - 30884-->
+<node nodeId="{3811c31f-d6c9-4c72-9897-d80395801359}" name="A auf DESKTOP-410TVVP - 30884"><![CDATA[var prev = 0
+var next = 0
+var temp = 0
+
+call prox.comm.enable(1)
+call leds.top(0,0,0)
+prox.comm.tx = 0
+
+onevent prox
+	if prox.horizontal[2] > 2000 and prox.horizontal[5] == 0 then
+		prox.comm.tx = value
+	end
+	if prev == 65 and next == 67 then
+		call leds.top(0,32,0)
+	elseif prev == 65 or next == 67 then
+		call leds.top(32, 32, 0)
+	else
+		call leds.top(32,0,0)
+	end
+	
+onevent prox.comm
+	temp = prox.comm.rx
+	if temp == -1 then
+		prox.comm.tx = 0
+	elseif  temp <= -65 then
+		prev = (-1)*temp
+		prox.comm.tx = -1
+		timer.period[0] = 110
+	elseif  temp >= 65 then
+		next = temp
+		prox.comm.tx = -1
+		timer.period[1] = 110
+	end
+	
+onevent timer0
+	if prox.horizontal[2] == 0 and prox.horizontal[5] > 2000 then
+		prox.comm.tx = value
+	else
+		prox.comm.tx = -value
+	end
+	timer.period[0] = 0
+	
+onevent timer1
+	if  prox.horizontal[2] > 2000 and prox.horizontal[5] == 0 then
+		prox.comm.tx = 0
+	else
+		prox.comm.tx = value
+	end
+	timer.period[1] = 0
+	
+	
+]]></node>
+
+
+</network>
