@@ -1,0 +1,335 @@
+# this program allows the robot to decide how happy it is with the position the user puts it in with regards to the values assigned to its neighbours. If it is not happy, it will
+# walk off after a while
+
+#----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
+
+# OPTIONS
+var speed = 200			# how fast the robots move away
+var stopMovementAfter = 20	# how long they move when they walk away
+var changerate = 1 	#the higher the rate, the slower the escape; determines how long the robot waits if it is unhappy; set changerate = 0 to prevent escape behaviour
+var hints_ENABLED = 1	# provide hints on button press if 1, no hints if 0
+
+
+var value = 90 			# the ASCII code of the letter
+var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
+var nextval = 0 			# the value of the next robot. This is the robot in front
+var prevval = 0			# the value of the previous robot. This is the robot behind this robot
+var nextsave = 0 		# the last value stored for the next robot. Used to measure if the neighbours have changed
+var prevsave = 0 		# the last value stored for the previous robot. Used to measure if the neighbours have changed
+var change				# boolean variable to indicate if there have been any changes
+var walksies = 0		# counter to determine when to stop moving
+var changerateupdate = 10000
+var happiness = -1	# how happy the robot is where it is at the moment. -1 if it does not have neighbours
+
+var displayColour = 0
+
+var prev[27]				# array storing all the frequencies for the previous values
+var next[27]				# array storing all the frequencies for the subsequent values
+
+timer.period[0] = 200
+
+# initializing the context frequencies []a. abc + space
+prev[0] = 200
+prev[1] = 0
+prev[2] = 0
+prev[3] = 0
+prev[4] = 100
+prev[5] = 0
+prev[6] = 0
+prev[7] = 0
+prev[8] = 550
+prev[9] = 0
+prev[10] = 0
+prev[11] = 0
+prev[12] = 0
+prev[13] = 0
+prev[14] = 50
+prev[15] = 0
+prev[16] = 0
+prev[17] = 0
+prev[18] = 0
+prev[19] = 0
+prev[20] = 0
+prev[21] = 0
+prev[22] = 0
+prev[23] = 0
+prev[24] = 50
+prev[25] = 0
+prev[26] = 50
+
+# initializing the context frequencies a[]. abc + space
+next[0] = 50
+next[1] = 0
+next[2] = 0
+next[3] = 0
+next[4] = 700
+next[5] = 0
+next[6] = 0
+next[7] = 0
+next[8] = 100
+next[9] = 0
+next[10] = 0
+next[11] = 0
+next[12] = 0
+next[13] = 0
+next[14] = 100
+next[15] = 0
+next[16] = 0
+next[17] = 0
+next[18] = 0
+next[19] = 0
+next[20] = 0
+next[21] = 0
+next[22] = 0
+next[23] = 0
+next[24] = 0
+next[25] = 50
+next[26] = 0
+
+# resetting the leds so that no previous colour setting interferes
+call leds.top(0,0,0)
+
+# enabling communication
+call prox.comm.enable(1)
+
+#----------------------------------------------------------------------------END INITIALISATION----------------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------G E N E R A L--------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN BUTTONS BLOCK-------------------------------------------------------------------------------
+# this event handler deals with the buttons. These are not part of the actual behaviour but rather used for safety and disambiguation.
+onevent buttons
+	# while the forward button is pressed, the robot will show a colour. Different colours can be used if the robots need to be disambiguated.
+	if (button.left == 1) then
+		call leds.top(32,15,32) #purple
+	end
+	# if the backward button is pressed, the robot stops moving. Safety measure in case the robot runs off or is at risk
+	if button.right == 1 then
+		motor.left.target = 0
+		motor.right.target = 0
+	end
+if  button.backward == 1 then
+		displayColour = 1
+		call leds.circle(0,0,15,15,15,15,15,0)
+		if prevval == 0 then
+			call leds.top(32,32,32)
+		elseif prev[prevval-65] > 100 then
+			call leds.top(0,32,0)
+		elseif prev[prevval-65] > 50 then
+			call leds.top(32,32,0)
+		else
+			call leds.top(32,0,0)
+		end
+	else
+		call leds.circle(0,0,0,0,0,0,0,0)
+	end
+	
+
+	if  button.forward == 1 then
+		displayColour = 1
+		call leds.circle(15,15,15,0,0,0,15,15)
+		if nextval == 0 then
+			call leds.top(32,32,32)
+		elseif next[nextval-65] > 100 then
+			call leds.top(0,32,0)
+		elseif next[nextval-65] > 50 then
+			call leds.top(32,32,0)
+		else
+			call leds.top(32,0,0)
+		end
+	else
+		call leds.circle(0,0,0,0,0,0,0,0)
+	end
+	
+#----------------------------------------------------------------------------END BUTTONS BLOCK-------------------------------------------------------------------------------
+
+onevent timer0
+	displayColour = 0
+
+#----------------------------------------------------------------------------BEGIN PROX BLOCK---------------------------------------------------------------------------------
+# this event is launched at regular intervals. Therefore, any code within the prox event will be executed regularly. 
+# this code segment handles the updates from the subroutines it calls and updates the colour
+onevent prox
+	if prox.horizontal[0] ==0 and prox.horizontal[4] == 0 and prox.horizontal[5] == 0 and prox.horizontal[6] == 0 then
+		if motor.left.target > 0 and walksies < stopMovementAfter then
+			motor.left.target = speed
+			motor.right.target = speed
+			walksies++
+		elseif motor.left.target < 0 and walksies < stopMovementAfter then
+			motor.left.target = -speed
+			motor.right.target = -speed
+			walksies++
+		else
+			motor.left.target = 0
+			motor.right.target = 0
+			walksies = 0
+		end
+	end
+	# if the robot does not currently have an ID, the comm subroutine is called to determine the ID.
+	if id==0 then
+		callsub comm
+	end
+	
+	# if the robot has an ID, it broadcasts its value and its ID. That way, the receiving robots can check if they should consider the value
+	if id !=0 then
+		emit neighbour_value [id, value]
+	end
+	
+	# if the robot does not have one or both neighbour, the corresponding variable is set to 0 and the recount event is emitted to signal that the IDs need to be reestablished.
+	if prox.horizontal[2] ==0 and (prox.horizontal[5] ==0  or prox.horizontal[6] == 0) then
+		nextval = 0
+		prevval = 0
+		emit recount
+	elseif prox.horizontal[2] == 0 then
+		nextval = 0
+		emit recount
+	elseif  prox.horizontal[5] == 0 or prox.horizontal[6] == 0 then
+		prevval = 0
+		emit recount
+	end
+	
+	# first, the changecheck subroutine is called to establish if there has been any changes to the neighbours. Then, this update influences the happycheck subroutine which determines
+	# how happy the robot currently is.
+	callsub changecheck
+	callsub happycheck
+
+	# depending on the happiness value, the top leds light up in a different colour. no neighbours = blue; happy = green; okay = yellow; red = unhappy
+	if displayColour == 0 then
+		if happiness == -1 then
+		call leds.top(32,32,32)
+	elseif  happiness > 200 then
+		call leds.top(0,32,0)
+		if change == 1 then
+			call sound.system(7)
+		end
+	elseif  happiness > 100 then
+		call leds.top(32,32,0)
+		if change == 1 then
+			call sound.system(6)
+		end
+	else
+		call leds.top(32,0,0)
+		if change == 1 then
+			call sound.system(4)
+		end
+	end
+	end
+
+
+#----------------------------------------------------------------------------END PROX BLOCK-------------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------C O M M U N I C A T I O N----------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN PROX.COMM BLOCK--------------------------------------------------------------------	
+# this event handler deals with incoming communication. It is only used to establish the ID and check if the order is preserved. 	
+onevent prox.comm
+	# if the robot does not yet have an ID or has lost it and if the robot receives the ID of another robot, it increments the received value and sets the result as its ID.
+	# then, it starts broadcasting its ID.
+	if id == 0 and prox.comm.rx != 0 then
+		id = prox.comm.rx + 1
+		prox.comm.tx = id
+	end
+	
+	# as the prox.comm communication has a limited range of only 15cm, the only values it should be receiving are one lower or higher than its own ID. If that is not the
+	# case, the robots have been moved and an event is emitted to indicate that the order has changed and that the IDs need to be restablished
+	if prox.comm.rx != id-1 then
+		if  prox.comm.rx != id+1 then
+			emit recount
+		end
+	end
+
+#----------------------------------------------------------------------------END PROX.COMM BLOCK-----------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN ID ESTABLISH BLOCK-------------------------------------------------------------------			
+# this subroutine deals with checking if a robot should be first in its line or not. If it does not have a previous neighbour, i.e. a robot behind it, the id is set to 1 and broadcast.
+# in all other cases, the id is set to 0. This is done to ensure every robot that is not at the beginning of a line has its ID reset to 0.
+sub comm
+	if prox.horizontal[2] > 2000 and (prox.horizontal[5] == 0 or prox.horizontal[6] == 0) then
+		id = 1
+		prox.comm.tx = id
+	else
+		id = 0
+	end
+
+#----------------------------------------------------------------------------END ID ESTABLISH BLOCK---------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN RECOUNT BLOCK------------------------------------------------------------------------		
+# this event handler is used to reset the robot into a stage where it does not know its position in the line. This can be used when the robot order is changed.
+# the only thing it does is to call the comm subroutine which handles initial ID assignments.
+onevent recount # takes 0 arguments
+	callsub comm
+	
+#----------------------------------------------------------------------------END RECOUNT BLOCK--------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------V A L U E   H A N D L I N G----------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN NEIGHBOUR BLOCK---------------------------------------------------------------------	
+# whenever the robot receives a neighbour_value event, it checks if it is entitled to handle these events. For that, it needs to have an id, i.e. it needs to be in the line
+# if it is in the line, it checks if the value is relevant to it. Only the direct neighbours values are considered relevant. These are the robots with the IDs that are the robot's 
+# own ID +/-1. If that is the case, the values for the previous or next robot are updated accordingly. As the IDs count upwards from the end, the value is assigned to
+# prevval if it is lower and to nextval if it is higher
+onevent neighbour_value # takes 2 arguments: ID and value
+	if id != 0 then
+		if event.args[0] == id-1 then
+			prevval = event.args[1]
+		elseif  event.args[0] == id+1 then
+			nextval = event.args[1]
+		end
+	end
+
+#----------------------------------------------------------------------------END NEIGHBOUR BLOCK-----------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN HAPPINESS CHECK BLOCK-------------------------------------------------------------		
+# this subroutine establishes how happy the robot currently is at its position with regards to its neighbours.	
+sub happycheck
+	# if there has not been any change since the last time this subroutine was called, the happiness is gradually reduced to help the user to possibly determine where
+	# the error might lie
+ 	if change == 0 then
+ 		if happiness > 20  then
+ 			if changerateupdate % changerate == 0 then
+ 				 happiness = happiness-1
+ 			end
+ 			changerateupdate--
+ 		# if the robot is too unhappy, it walks away. the movement does not stop until it is brought to a stop by pressing the backward button
+ 		elseif happiness > -1 then
+ 			# if there is nothing in front of it, it walks straight ahead
+ 			if prox.horizontal[2] == 0 then
+ 				motor.left.target = speed
+ 				motor.right.target = speed
+ 			# if there is something in front but nothing at the back, it moves straight backwards
+ 			elseif prox.horizontal[5] == 0 and prox.horizontal[6] == 0 then
+ 				motor.left.target = -speed
+ 				motor.right.target = -speed
+ 			# if it is in the middle of two robots, it turns left
+ 			else
+ 				motor.left.target = speed
+ 				motor.right.target = 0
+ 			end
+ 		end
+ 		
+	 # if the robot has two neighbours, it does the sum.
+	 # if the robot only has one neighbour, the other side is considered an empty space
+	 # if the robot does not have neighbours, happiness = -1
+ 	else
+ 		if prevval != 0 and nextval != 0 then
+ 			happiness = prev[prevval-65] + next[nextval-65]
+ 		elseif nextval != 0 then
+ 			happiness = prev[26] + next[nextval-65]
+ 		elseif prevval != 0 then
+ 			happiness = prev[prevval-65] + next[26]
+ 		else
+ 			happiness = -1
+ 		end
+ 	end
+
+#----------------------------------------------------------------------------END HAPPINESS CHECK BLOCK---------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN CHANGE CHECK BLOCK----------------------------------------------------------------	
+# this subroutine checks if there has been any change to the neighbours since the subroutine was last called	 	
+sub changecheck
+	# if the saved and the current value of the previous and the subsequent robot are the same, no change has been made
+	if prevval == prevsave and nextval == nextsave then
+		change = 0
+	# if one or both values are different, then there has been some change and the saved states are updated
+	else
+		change = 1
+		prevsave = prevval
+		nextsave = nextval
+	end
+
+#----------------------------------------------------------------------------END CHANGE CHECK BLOCK------------------------------------------------------------------	
+	
