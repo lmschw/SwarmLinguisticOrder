@@ -2,7 +2,7 @@ var value = 65
 var id = 0
 var nextval = 0
 var prevval = 0
-var change
+var oldhappiness = 0
 var happiness = -1
 
 var prev[27]
@@ -98,13 +98,22 @@ onevent prox
 	callsub happycheck
 
 	if happiness == -1 then
-		call leds.top(0,0,32)
+		call leds.top(32,32,32)
 	elseif  happiness > 200 then
 		call leds.top(0,32,0)
+		if oldhappiness <200 then
+			call sound.system(7)
+		end
 	elseif  happiness > 100 then
 		call leds.top(32,32,0)
+		if oldhappiness <100 or oldhappiness >200 then
+			call sound.system(6)
+		end
 	else
 		call leds.top(32,0,0)
+		if oldhappiness >100 or oldhappiness == 0 or oldhappiness == -1 then
+			call sound.system(4)
+		end
 	end
 	
 	
@@ -134,27 +143,19 @@ sub comm
 		id = 1
 		prox.comm.tx = id
 	else
-		id = 0
+		id
+		 = 0
 	end
-	change = 1
-
 onevent recount
 	id = 0
 	callsub comm
 	
 	
-	sub happycheck
- if change == 0 then
- if happiness > 50  then
- 	happiness = happiness-20
- else
- 	motor.left.target = 200
- 	motor.right.target = 200
- end
+sub happycheck
  # if the robot has two neighbours, it does the sum.
  # if the robot only has one neighbour, the other side is considered an empty space
  # if the robot does not have neighbours, happiness = -1
- else
+ 	oldhappiness = happiness
  	if prevval != 0 and nextval != 0 then
  		happiness = prev[prevval-65] + next[nextval-65]
  	elseif nextval != 0 then
@@ -164,4 +165,3 @@ onevent recount
  	else
  		happiness = -1
  	end
- end
