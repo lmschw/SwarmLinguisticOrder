@@ -5,8 +5,9 @@
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
 
 # OPTIONS
-var speed = 100
-var stopMovementAfter = 20
+var speed = 200			# how fast the robots move away
+var stopMovementAfter = 20	# how long they move when they walk away
+var changerate = 1 	# changerate == 2: 12s; 3: 18s; 30: 171s;; max: 125; the higher the rate, the slower the escape; determines how long the robot waits if it is unhappy; set changerate = 0 to prevent escape behaviour
 
 
 var value = 65 			# the ASCII code of the letter
@@ -16,7 +17,8 @@ var prevval = 0			# the value of the previous robot. This is the robot behind th
 var nextsave = 0 		# the last value stored for the next robot. Used to measure if the neighbours have changed
 var prevsave = 0 		# the last value stored for the previous robot. Used to measure if the neighbours have changed
 var change				# boolean variable to indicate if there have been any changes
-var walksies = 0
+var walksies = 0		# counter to determine when to stop moving
+var changerateupdate = 10000
 var happiness = -1	# how happy the robot is where it is at the moment. -1 if it does not have neighbours
 
 var prev[27]				# array storing all the frequencies for the previous values
@@ -231,7 +233,10 @@ sub happycheck
 	# the error might lie
  	if change == 0 then
  		if happiness > 20  then
- 			happiness = happiness-1
+ 			if changerateupdate % changerate == 0 then
+ 				 happiness = happiness-1
+ 			end
+ 			changerateupdate--
  		# if the robot is too unhappy, it walks away. the movement does not stop until it is brought to a stop by pressing the backward button
  		elseif happiness > -1 then
  			# if there is nothing in front of it, it walks straight ahead

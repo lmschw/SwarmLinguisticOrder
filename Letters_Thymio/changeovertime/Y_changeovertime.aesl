@@ -4,13 +4,21 @@
 #----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
 
-var value = 89 			# the ASCII code of the letter
+# OPTIONS
+var speed = 100			# how fast the robots move away
+var stopMovementAfter = 20	# how long they move when they walk away
+var changerate = 1 	# changerate == 2: 12s; 3: 18s; 30: 171s;; max: 125; the higher the rate, the slower the escape; determines how long the robot waits if it is unhappy
+
+
+var value = 89		# the ASCII code of the letter
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
 var nextval = 0 			# the value of the next robot. This is the robot in front
 var prevval = 0			# the value of the previous robot. This is the robot behind this robot
 var nextsave = 0 		# the last value stored for the next robot. Used to measure if the neighbours have changed
 var prevsave = 0 		# the last value stored for the previous robot. Used to measure if the neighbours have changed
 var change				# boolean variable to indicate if there have been any changes
+var walksies = 0		# counter to determine when to stop moving
+var changerateupdate = 10000
 var happiness = -1	# how happy the robot is where it is at the moment. -1 if it does not have neighbours
 
 var prev[27]				# array storing all the frequencies for the previous values
@@ -73,7 +81,6 @@ next[23] = 0
 next[24] = 0
 next[25] = 2
 next[26] = 832
-
 # resetting the leds so that no previous colour setting interferes
 call leds.top(0,0,0)
 
@@ -101,6 +108,17 @@ onevent buttons
 # this event is launched at regular intervals. Therefore, any code within the prox event will be executed regularly. 
 # this code segment handles the updates from the subroutines it calls and updates the colour
 onevent prox
+	if prox.horizontal[0] ==0 and prox.horizontal[4] == 0 and prox.horizontal[5] == 0 and prox.horizontal[6] == 0 then
+		if motor.left.target != 0 and walksies < stopMovementAfter then
+			motor.left.target = speed
+			motor.right.target = speed
+			walksies++
+		else
+			motor.left.target = 0
+			motor.right.target = 0
+			walksies = 0
+		end
+	end
 	# if the robot does not currently have an ID, the comm subroutine is called to determine the ID.
 	if id==0 then
 		callsub comm
@@ -131,13 +149,22 @@ onevent prox
 
 	# depending on the happiness value, the top leds light up in a different colour. no neighbours = blue; happy = green; okay = yellow; red = unhappy
 	if happiness == -1 then
-		call leds.top(0,0,32)
+		call leds.top(32,32,32)
 	elseif  happiness > 200 then
 		call leds.top(0,32,0)
+		if change == 1 then
+			call sound.system(7)
+		end
 	elseif  happiness > 100 then
 		call leds.top(32,32,0)
+		if change == 1 then
+			call sound.system(6)
+		end
 	else
 		call leds.top(32,0,0)
+		if change == 1 then
+			call sound.system(4)
+		end
 	end
 
 #----------------------------------------------------------------------------END PROX BLOCK-------------------------------------------------------------------------------
@@ -205,17 +232,20 @@ sub happycheck
 	# the error might lie
  	if change == 0 then
  		if happiness > 20  then
- 			happiness = happiness-1
+ 			if changerateupdate % changerate == 0 then
+ 				 happiness = happiness-1
+ 			end
+ 			changerateupdate--
  		# if the robot is too unhappy, it walks away. the movement does not stop until it is brought to a stop by pressing the backward button
  		elseif happiness > -1 then
  			# if there is nothing in front of it, it walks straight ahead
  			if prox.horizontal[2] == 0 then
- 				motor.left.target = 200
- 				motor.right.target = 200
+ 				motor.left.target = speed
+ 				motor.right.target = speed
  			# if there is something in front but nothing at the back, it moves straight backwards
  			elseif prox.horizontal[5] == 0 and prox.horizontal[6] == 0 then
- 				motor.left.target = -200
- 				motor.right.target = -200
+ 				motor.left.target = -speed
+ 				motor.right.target = -speed
  			# if it is in the middle of two robots, it turns left
  			else
  				motor.left.target = 200
