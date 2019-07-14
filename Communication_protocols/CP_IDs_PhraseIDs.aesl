@@ -1,0 +1,201 @@
+# this program allows the robot to decide how happy it is with the position the user puts it in with regards to the values assigned to its neighbours. If it is not happy, it will
+# walk off after a while - SIMPLE GRAMMAR
+
+# TODO before each use, adjust the colour for the forward button to disambiguate the robots
+# TODO before each use, set up events: neighbourInfo (3 arguments: ID, phraseID, phrasepos) 
+# searchNPCompletion (7 args: id, phraseID, phraseposition,  phrasestart, phraseend, np0, np1)
+# searchVPCompletion (11 args: id, phraseID, phraseposition, phrasestart, phraseend, vp0-12)
+# searchPPCompletion (8 args: id, phraseID, phraseposition, phrasestart, phraseend, pp0-2)
+# searchADJPCompletion (10 args: id, phraseID, phraseposition, phrasestart, phraseend, adjp0-4)
+# searchADVPCompletion (5 args: id, phraseID, phraseposition, phrasestart, phraseend)
+
+# phraseComplete(2 args: phraseID, phrasetype)
+# updatePhraseBoundary(5 args: id, phraseID, maxclass, border[bool])
+# supercede(4 args: id, oldPhraseID, newPhraseID, phrasetype)
+# constructionComplete(0 args)
+
+# recountID(0 args)
+# recountPhraseID (0 args)
+
+#idModeSwitch (1 arg: mode)
+
+
+
+
+#TODO use prox.comm to establish the phraseIDs: certain classes get their own pID to start with: P, V, ADV, ADJ, PRO, CONJ, SUB 
+#TODO emit the events when necessary and only do something if it is either a neighbour or the same phraseID
+# for different words, only value and class need to be changed
+
+#----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------variables--------------------------------------------------------------------------------------------------
+# word-specific values
+var value[] = [84,73,69] 			# the ASCII code every letter of the word as an array - 'the'
+var class = 8								# category - determiner in this case
+
+# grammaticality judgements
+var maxclass = class	# maximal phrase category achieved, e.g. NP, VP, construction etc.
+var maximalPID= 0		# the highest phrase ID, i.e. the number of phrases that have been constructed
+var phraseid = 0			# id of the phrase containing the word
+var phrasepos = 0		# index of the phrase that should be considered		
+var phrasetype = 0		# type of the phrase corresponding to the phraseID
+var oldPhraseID = 0	# if superceding phrase, used to notify all other members of the same phrase
+var phraseComplete = 0	# if the phrase is complete
+var constructionComplete = 0	# if the whole construction is complete
+var phraseIDsInPhrase[4]	# where the IDs of all absorbed phrases are stored
+var idpid = 0 # 0 when establishing IDs, 1 when establishing phraseIDs
+
+
+# general variables
+var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
+
+# aux variables
+var prevback = 0
+var prevfront = 0
+
+#--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------constructions-------------------------------------------------------------------------------------------------
+# constructions: 100
+var c0[] = [102]	# VP
+var c1[] = [105]	# ADVP
+var c2[] = [100,14,100]	# construction + CONJ + construction
+var c3[] = [100,15,100]	# construction + SUB + construction
+
+# NPs: 101
+var np0[] = [8,1]		# DET + N
+var np1[] = [8,104,1]	# DEP+ ADJP + N
+var np2[] = [9]	# PRO
+
+# VPs: 102
+var vp0[] = [101,2]		# NP + intransV
+var vp1[] = [101,3,101]	# NP + transV + NP
+var vp2[] = [101,16,101,101]	# NP + transV2 + NP + NP
+var vp3[] = [101,4,104]	# NP + be + ADJP
+var vp4[] = [101, 2,103]	# NP + intransV + PP
+var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
+var vp6[] = [101,16,101,101,103]	# NP + transV2 + NP + NP + PP
+var vp7[] = [101,17,10,2]	# NP + do + NEG + intransV
+var vp8[] = [101,17,10,3,101]	# NP + do + NEG + transV + NP
+var vp9[] = [101,17,10,16,101,101]	# NP + do + NEG + transV2 + NP + NP
+var vp10[] = [101,17,10,2,103]	# NP + do + NEG + intransV + PP
+var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
+var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
+
+# PPs: 103
+var pp0[] = [11,101]	# P + NP
+var pp1[] = [103,103]	# PP + PP
+var pp2[] = [103,14,103]	# PP + CONJ + PP
+
+# ADJP: 104
+var adjp0[] = [7]	# ADJ
+var adjp1[] = [7,7]	# ADJ + ADJ
+var adjp2[] = [7,104]	# ADJ + ADJP
+var adjp3[] = [7,14,104]	# ADJ + CONJ + ADJP
+var adjp4[] = [104,14,104]	# ADJP + CONJ + ADJP
+
+# ADVP:105
+var advp0[] = [102,13]	# VP + ADV
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------functions----------------------------------------------------------------------------------------------------
+
+# resetting the leds so that no previous colour setting interferes
+call leds.top(0,0,0)
+
+# enabling communication
+call prox.comm.enable(1)
+
+#----------------------------------------------------------------------------END INITIALISATION----------------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------G E N E R A L--------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN BUTTONS BLOCK-------------------------------------------------------------------------------
+# this event handler deals with the buttons. These are not part of the actual behaviour but rather used for safety and disambiguation.
+onevent buttons
+	# while the forward button is pressed, the robot will show a colour. Different colours can be used if the robots need to be disambiguated.
+	#TODO change colour for each robot
+	if (button.forward == 1) then
+		call leds.top(32,15,32) #purple: use different colour for every robot to disambiguate
+	end
+	# if the backward button is pressed, the robot stops moving. Safety measure in case the robot runs off or is at risk
+	if button.backward == 1 then
+		motor.left.target = 0
+		motor.right.target = 0
+	end
+
+onevent prox
+
+	# if there is no robot in front of this one, switch ID/phraseID mode and emit an event to other robots to do the same
+	if prox.horizontal[2] == 0 and prox.horizontal[5] == 0 and prox.horizontal[6] == 0 then
+		idpid = 0
+		phraseid = 0
+	elseif prox.horizontal[5] == 0 and prox.horizontal[6] == 0 and id != 1 then
+		emit recountID
+		callsub comm
+	elseif prox.horizontal[2] == 0 then
+		if idpid == 0 and id != 0 then
+			idpid = 1
+			emit idModeSwitch idpid
+		elseif idpid == 1 and phraseid >= 0 then
+			idpid = 0
+			emit idModeSwitch idpid
+		end
+	end
+	
+	# if the robot does not have an ID, enforces ID search. Else, checks if the robot is at the centre of a phrase or not.
+	if idpid == 0 then
+		if id == 0 then
+			callsub comm
+		end
+	elseif idpid ==1 then
+		if id == 0 then
+			idpid = 0
+			emit recountID
+			callsub comm
+		elseif phraseid == 0 and  class != 1 and class != 10 and class != 12 then
+			phraseid = -1
+			callsub comm
+		end
+	end
+
+sub comm
+	if prox.horizontal[2] > 2000 and (prox.horizontal[5] == 0 or prox.horizontal[6] == 0) then
+		if idpid == 0 then
+			id = 1
+			prox.comm.tx = id
+		elseif  idpid == 1 then
+			phraseid = 1
+			prox.comm.tx = phraseid
+		end
+	end
+
+onevent idModeSwitch
+	idpid = event.args[0]
+
+onevent prox.comm
+	if idpid == 0 then
+		if id == 0 and prox.comm.rx != 0 then
+			id = prox.comm.rx + 1
+			prox.comm.tx = id
+		end
+	
+		# as the prox.comm communication has a limited range of only 15cm, the only values it should be receiving are one lower or higher than its own ID. If that is not the
+		# case, the robots have been moved and an event is emitted to indicate that the order has changed and that the IDs need to be restablished
+#		if prox.comm.rx != id-1 then
+#			if  prox.comm.rx != id+1 then
+#				emit recountID
+#			end
+#		end
+	elseif  idpid  == 1 then
+		if phraseid == -1 and  prox.comm.rx != 0 then
+			phraseid = prox.comm.rx + 1
+			prox.comm.tx = phraseid
+		elseif  phraseid == 0 then
+			phraseid = -2
+			prox.comm.tx = prox.comm.rx
+		end
+	end
+	
+onevent recountID # takes 0 arguments
+	id = 0
+	callsub comm
