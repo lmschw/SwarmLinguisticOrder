@@ -306,7 +306,9 @@ onevent recountPhraseID
 # searchADVPCompletion (5 args: id, phraseID, phrasestart, phraseend, advp0)
 # a noun can only occur in an adverbial phrase if it is part of a VP
 onevent searchADVPCompletion
-	if maxclass == 102 and event.args[4] == 1 then
+	if phraseid == event.args[1] then
+		emit searchADVPCompletion event.args[0:4]
+	elseif maxclass == 102 and event.args[4] == 1 then
 		if (event.args[0] < id and event.args[3]+1 == id) or  (event.args[0] > id and event.args[3]-1 == id) then
 			oldPhraseID = phraseid 
 			phraseid = event.args[0]
@@ -325,8 +327,11 @@ onevent searchADVPCompletion
 #var np2[] = [9]	# PRO
 # searchNPCompletion (7 args: id, phraseID,  phrasestart, phraseend, np0-1)
 onevent searchNPCompletion
-	if id > event.args[0] and id == event.args[3] +1 and maxclass == class and (event.args[4] == 1 or event.args[5] == 1) then
+	if phraseid == event.args[1] then
+		emit searchNPCompletion event.args[0:6]
+	elseif id > event.args[0] and id == event.args[3] +1 and maxclass == class and (event.args[4] == 1 or event.args[5] == 1) then
 		oldPhraseID = 0
+		call sound.system(3)
 		phraseid = event.args[1]
 		if prox.horizontal[2] == 0 then
 			emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 1]
@@ -342,7 +347,9 @@ onevent searchNPCompletion
 # searchPPCompletion (7 args: id, phraseID, phrasestart, phraseend, pp0-2)
 # can only complete PP if maxclass is PP or NP
 onevent searchPPCompletion
-	if maxclass == 101 and event.args[4] == 1 then
+	if phraseid == event.args[1] then
+		emit searchConsCompletion event.args[0:4]
+	elseif maxclass == 101 and event.args[4] == 1 then
 		if event.args[0] < id and event.args[3] + 1 == id then
 			oldPhraseID = phraseid 
 			phraseid = event.args[0]
@@ -384,7 +391,9 @@ onevent searchPPCompletion
 # can only complete a VP if maxclass = 101 or maxclass = 103
 onevent searchVPCompletion
 	bool = 0
-	if maxclass == 101 then
+	if phraseid == event.args[1] then
+		emit searchConsCompletion event.args[0:4]
+	elseif maxclass == 101 then
 		# verb after the determiner
 		if event.args[0] > id and event.args[2] -1 == id then
 			bool = 1
@@ -415,7 +424,9 @@ onevent searchVPCompletion
 # searchConsCompletion (5 args: id, phraseID, phrasestart, phraseend,cons0,cons1,cons2,cons3)
 # only relevant when the maxclass is 100
 onevent searchConsCompletion
-	if maxclass == 100 and (event.args[6] == 1 or event.args[7] == 1) and (event.args[0] < id and event.args[3] + 1 == id) or (event.args[0] > id and event.args[2] -1 == id) then
+	if phraseid == event.args[1] then
+		emit searchConsCompletion event.args[0:4]
+	elseif maxclass == 100 and (event.args[6] == 1 or event.args[7] == 1) and (event.args[0] < id and event.args[3] + 1 == id) or (event.args[0] > id and event.args[2] -1 == id) then
 		oldPhraseID = phraseid 
 		phraseid = event.args[0]
 		phrasetype = 102

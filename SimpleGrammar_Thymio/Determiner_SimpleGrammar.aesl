@@ -125,18 +125,6 @@ call prox.comm.enable(1)
 
 
 #----------------------------------------------------------------------------END INITIALISATION----------------------------------------------------------------------------------
-# handles what happens when the buttons are pressed
-onevent buttons
-	# while the forward button is pressed, the robot will show a colour. Different colours can be used if the robots need to be disambiguated.
-	#TODO change colour for each robot
-	if (button.forward == 1) then
-		call leds.top(32,12,32) #purple: use different colour for every robot to disambiguate
-	end
-	# if the backward button is pressed, the robot stops moving. Safety measure in case the robot runs off or is at risk
-	if button.backward == 1 then
-		motor.left.target = 0
-		motor.right.target = 0
-	end
 
 # this event is launched regularly, therefore its contents are also checked and executed at a regular frequency
 onevent prox
@@ -171,6 +159,7 @@ onevent prox
 	# if there is only a neighbour in front and the robot was not previously the first robot in the line, the IDs are reestablished
 	elseif prox.horizontal[5] == 0 and prox.horizontal[6] == 0 and id != 1 then
 		emit recountID
+		callsub reset
 		callsub comm
 	elseif  prox.horizontal[5] == 0 and prox.horizontal[6] == 0 and (phraseid != 1 and phraseid != -2) then
 		if class != 1 and class != 10 and class != 12  then
@@ -276,6 +265,7 @@ onevent prox.comm
 			prox.comm.tx = id
 		elseif id != prox.comm.rx -1 and id != prox.comm.rx +1 then
 			emit recountID
+			callsub reset
 		end
 	# when establishing the PhraseIDs, if the robot is at the centre of its own phrase, it increments the value and sends out its own phraseID. Else, it just passes the last phraseID on
 	end
@@ -285,20 +275,17 @@ onevent neighbour_value
 	if event.args[0] == id -1 then
 		if phraseid == 0 and  class != 1 and class != 10 and class != 12 then
 			phraseid = event.args[1] + 1
-			phrasestart = id
-			phraseend = id
 			callsub reset
 			emit neighbour_value [id, phraseid]
 		elseif phraseid == 0 then
 			phraseid = -2
-			phrasestart = -1
-			phraseend = -1
 			callsub reset
 			emit neighbour_value[id, event.args[1]]
 			highestpid = event.args[1]
 		end
 	elseif (event.args[0] < id and event.args[1] > phraseid) and (event.args[0] > id and event.args[1] < phraseid) then
 		emit recountPhraseID
+		callsub reset
 	end
 	
 # notifies robots that the IDs need to be reestablished
@@ -319,7 +306,9 @@ onevent recountPhraseID
 # searchADVPCompletion (5 args: id, phraseID, phrasestart, phraseend, advp0)
 # a determiner can only occur in an adverbial phrase if it is part of a VP
 onevent searchADVPCompletion
-	if maxclass == 102 and event.args[4] == 1 then
+	if phraseid == event.args[1] then
+		emit searchADVPCompletion event.args[0:4]
+	elseif maxclass == 102 and event.args[4] == 1 then
 		if (event.args[0] < id and event.args[3]+1 == id) or  (event.args[0] > id and event.args[3]-1 == id) then
 			oldPhraseID = phraseid 
 			phraseid = event.args[0]
@@ -338,7 +327,9 @@ onevent searchADVPCompletion
 # searchPPCompletion (7 args: id, phraseID, phrasestart, phraseend, pp0-2)
 # can only complete PP if maxclass is PP or NP
 onevent searchPPCompletion
-	if maxclass == 101 and event.args[4] == 1 then
+	if phraseid == event.args[1] then
+		emit searchPPCompletion event.args[0:6]
+	elseif maxclass == 101 and event.args[4] == 1 then
 		if event.args[0] < id and event.args[3] + 1 == id then
 			oldPhraseID = phraseid 
 			phraseid = event.args[0]
@@ -366,7 +357,9 @@ onevent searchPPCompletion
 # can only complete a VP if maxclass = 101 or maxclass = 103
 onevent searchVPCompletion
 	bool = 0
-	if maxclass == 101 then
+	if phraseid == event.args[1] then
+		emit searchVPCompletion event.args[0:16]
+	elseif maxclass == 101 then
 		# verb after the determiner
 		if event.args[0] > id and event.args[2] -1 == id then
 			bool = 1
@@ -392,7 +385,9 @@ onevent searchVPCompletion
 # searchConsCompletion (5 args: id, phraseID, phrasestart, phraseend,cons0,cons1,cons2,cons3)
 # only relevant when the maxclass is 100
 onevent searchConsCompletion
-	if maxclass == 100 and (event.args[6] == 1 or event.args[7] == 1) and (event.args[0] < id and event.args[3] + 1 == id) or (event.args[0] > id and event.args[2] -1 == id) then
+	if phraseid == event.args[1] then
+		emit searchConsCompletion event.args[0:4]
+	elseif maxclass == 100 and (event.args[6] == 1 or event.args[7] == 1) and (event.args[0] < id and event.args[3] + 1 == id) or (event.args[0] > id and event.args[2] -1 == id) then
 		oldPhraseID = phraseid 
 		phraseid = event.args[0]
 		phrasetype = 102
@@ -405,49 +400,50 @@ onevent searchConsCompletion
 
 # updatePhraseBoundary(5 args: id, phraseID, oldPhraseID, maxclass, border[bool])
 onevent updatePhraseBoundary 
-	if id < event.args[0] and phraseid == event.args[1] then
+	if id < event.args[0] and phraseid == event.args[1] and phraseend == event.args[0]-1 then
 		phraseend = event.args[0]
-	elseif id > event.args[0] and phraseid == event.args[1] then
-		phrasestart = event.args[0]
-	end
-	if npPossible[0] == 1 then
-		i = 0
-		call leds.top(32,32,32)
-		while (id+i) < npLengths[0] do
-			if np0comp[id+i] ==  0 and np0[id+i] == event.args[3] then
-				if event.args[2] == 0 then
-					np0comp[id+i] = maxclass
-					call sound.system(3)
-				else
-					np0comp[id+i] = oldPhraseID
+		if npPossible[0] == 1 then
+			i = 0
+			call leds.top(32,32,32)
+			while (id+i) < npLengths[0] do
+				if np0comp[id+i] ==  0 and np0[id+i] == event.args[3] then
+					if event.args[2] == 0 then
+						np0comp[id+i] = maxclass
+						call leds.top(32,12,32)
+					else
+						np0comp[id+i] = oldPhraseID
+					end
+					i = 10000
 				end
-				i = 10000
+				i++
 			end
-		end
-		i = 0
-		j = 1
-		while i < npLengths[0] do
-			if np0comp[i] == 0 then
-				j = 0
-			end
-			i++
-		end
-		if j == 1 then
-			phraseComplete = 1
-			emit phraseComplete [phraseid, phrasetype]
-		end
-	elseif npPossible[1] == 1 then
-		i = 1
-		while (id+i) < npLengths[1] do
-			if np1comp[id+i] ==  0 and np1[id+i] == maxclass then
-				if oldPhraseID == 0 then
-					np1comp[id+i] = maxclass
-				else
-					np1comp[id+i] = oldPhraseID
+			i = 0
+			j = 1
+			while i < npLengths[0] do
+				if np0comp[i] == 0 then
+					j = 0
 				end
-				i = 10000
+				i++
 			end
-		end		
+			if j == 1 then
+				phraseComplete = 1
+				emit phraseComplete [phraseid, phrasetype]
+				maxclass = phrasetype
+			end
+		elseif npPossible[1] == 1 then
+			i = 1
+			while (id+i) < npLengths[1] do
+				if np1comp[id+i] ==  0 and np1[id+i] == maxclass then
+					if oldPhraseID == 0 then
+						np1comp[id+i] = maxclass
+					else
+						np1comp[id+i] = oldPhraseID
+					end
+					i = 10000
+				end
+				i++
+			end		
+		end
 	end
 
 #phraseComplete
@@ -456,6 +452,7 @@ onevent phraseComplete
 		phraseComplete = 1
 		phrasetype = event.args[1]
 		maxclass = phrasetype
+		emit phraseComplete event.args[0:1]
 	end
 
 # constructionComplete
