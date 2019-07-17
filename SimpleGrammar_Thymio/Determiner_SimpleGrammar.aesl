@@ -41,7 +41,7 @@ var class = 8								# category - determiner in this case
 var maxclass = class	# maximal phrase category achieved, e.g. NP, VP, construction etc.
 var phraseid = 0			# id of the phrase containing the word
 var phrasetype = 0		# type of the phrase corresponding to the phraseID
-#var oldPhraseID = 0	# if superceding phrase, used to notify all other members of the same phrase
+var oldPhraseID = 0	# if superceding phrase, used to notify all other members of the same phrase
 var phraseComplete = 0	# if the phrase is complete
 var constructionComplete = 0	# if the whole construction is complete
 #var phraseIDsInPhrase[4]	# where the IDs of all absorbed phrases are stored
@@ -53,7 +53,9 @@ var phraseend = -1
 # storage variables
 var consPossible[4] = [1,1,0,0]
 var npPossible[3] = [1,1,1]
-var npLengths [3] = [2,3,
+var npLengths [3] = [2,3,1]
+
+
 
 # general variables
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
@@ -62,6 +64,13 @@ var id = 0 					# the communication ID. Corresponds to the number of the robot i
 #var prevback = 0
 #var prevfront = 0
 var bool = 0
+var i = 0
+var j = 0
+
+# completion check variables
+var np0comp[] = [-1,0]
+var np1comp[] = [-1,0,0]
+var np2comp[] = [0]
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------constructions-------------------------------------------------------------------------------------------------
@@ -279,16 +288,16 @@ onevent recountPhraseID
 
 # searchADVPCompletion (5 args: id, phraseID, phrasestart, phraseend, advp0)
 # a determiner can only occur in an adverbial phrase if it is part of a VP
-onevent searchADVCompletion
+onevent searchADVPCompletion
 	if maxclass == 102 and event.args[4] == 1 then
 		if (event.args[0] < id and event.args[3]+1 == id) or  (event.args[0] > id and event.args[3]-1 == id) then
-			#oldPhraseID = phraseid 
+			oldPhraseID = phraseid 
 			phraseid = event.args[0]
 			phrasetype = 105
 			if prox.horizontal[2] == 0 or (prox.horizontal[5] == 0 and prox.horizontal[6] == 0) then
-				emit updatePhraseBoundary [id, phraseid, maxclass, 1]
+				emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 1]
 			else
-				emit updatePhraseBoundary [id, phraseid, maxclass, 0]
+				emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 0]
 			end
 		end
 	end
@@ -301,24 +310,24 @@ onevent searchADVCompletion
 onevent searchPPCompletion
 	if maxclass == 101 and event.args[4] == 1 then
 		if event.args[0] < id and event.args[3] + 1 == id then
-			#oldPhraseID = phraseid 
+			oldPhraseID = phraseid 
 			phraseid = event.args[0]
 			phrasetype = 103
 			if prox.horizontal[2] == 0 or (prox.horizontal[5] == 0 and prox.horizontal[6] == 0) then
-				emit updatePhraseBoundary [id, phraseid, maxclass, 1]
+				emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 1]
 			else
-				emit updatePhraseBoundary [id, phraseid, maxclass, 0]
+				emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 0]
 			end
 		end
 	elseif maxclass == 103 and (event.args[5] == 1 or event.args[6] == 1) then
 		if (event.args[0] < id and event.args[3] + 1 == id) or (event.args[0] > id and event.args[2] -1 == id) then
-			#oldPhraseID = phraseid 
+			oldPhraseID = phraseid 
 			phraseid = event.args[0]
 			phrasetype = 103
 			if prox.horizontal[2] == 0 or (prox.horizontal[5] == 0 and prox.horizontal[6] == 0) then
-				emit updatePhraseBoundary [id, phraseid, maxclass, 1]
+				emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 1]
 			else
-				emit updatePhraseBoundary [id, phraseid, maxclass, 0]
+				emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 0]
 			end
 		end
 	end
@@ -331,21 +340,22 @@ onevent searchVPCompletion
 		# verb after the determiner
 		if event.args[0] > id and event.args[2] -1 == id then
 			bool = 1
-		elseif event.args[0] < id and event.args[3] + 1 == id and (event.args[5] == 1 or event.args[6] == 1 or event.args[9] == 1 or event.args[10] == 1 or 12] == 1 or event.args[13] == 1 or event.args[15] == 1 or event.args[16] == 1) then
+		elseif event.args[0] < id and event.args[3] + 1 == id and (event.args[5] == 1 or event.args[6] == 1 or event.args[9] == 1 or event.args[10] == 1 or event.args[12] == 1 or event.args[13] == 1 or event.args[15] == 1 or event.args[16] == 1) then
 			bool = 1
 		end
 	elseif  maxclass == 103 and event.args[0]+1 == id then
-		if event.args[8] == 1 or event.args[9] == 1 or event.args[10] == 1 or event.args[14] == 1 or event.args[15] == 1 or event.args[16] then
+		if event.args[8] == 1 or event.args[9] == 1 or event.args[10] == 1 or event.args[14] == 1 or event.args[15] == 1 or event.args[16] == 1 then
 			bool = 1
 		end
 	end
 	if bool == 1 then
+		oldPhraseID = phraseid 
 		phraseid = event.args[0]
 		phrasetype = 102
 		if prox.horizontal[2] == 0 then
-			emit updatePhraseBoundary [id, phraseid, maxclass, 1]
+			emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 1]
 		else
-			emit updatePhraseBoundary [id, phraseid, maxclass, 0]
+			emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 0]
 		end
 	end
 
@@ -353,32 +363,69 @@ onevent searchVPCompletion
 # only relevant when the maxclass is 100
 onevent searchConsCompletion
 	if maxclass == 100 and (event.args[6] == 1 or event.args[7] == 1) and (event.args[0] < id and event.args[3] + 1 == id) or (event.args[0] > id and event.args[2] -1 == id) then
+		oldPhraseID = phraseid 
 		phraseid = event.args[0]
 		phrasetype = 102
 		if prox.horizontal[2] == 0 then
-			emit updatePhraseBoundary [id, phraseid, maxclass, 1]
+			emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 1]
 		else
-			emit updatePhraseBoundary [id, phraseid, maxclass, 0]
+			emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 0]
 		end
 	end
 
-# updatePhraseBoundary(5 args: id, phraseID, maxclass, border[bool])
+# updatePhraseBoundary(5 args: id, phraseID, oldPhraseID, maxclass, border[bool])
 onevent updatePhraseBoundary 
 	if id < event.args[0] and phraseid == event.args[1] then
 		phrasestart = event.args[0]
 	elseif id > event.args[0] and phraseid == event.args[1] then
 		phraseend = event.args[0]
 	end
-	for i in 0:3 do
-		if npPossible[i] then
-			
+	if npPossible[0] == 1 then
+		i = 1
+		while (id+i) < npLengths[0] do
+			if np0comp[id+i] ==  0 and np0[id+i] == maxclass then
+				if oldPhraseID == 0 then
+					np0comp[id+i] = maxclass
+				else
+					np0comp[id+i] = oldPhraseID
+				end
+				i = 10000
+			end
 		end
+		i = 0
+		j = 1
+		while i < npLengths[0] do
+			if np0comp[i] == 0 then
+				j = 0
+			end
+		end
+		if j == 1 then
+			phraseComplete = 1
+			emit phraseComplete [phraseid, phrasetype]
+		end
+	elseif npPossible[1] == 1 then
+		i = 1
+		while (id+i) < npLengths[1] do
+			if np1comp[id+i] ==  0 and np1[id+i] == maxclass then
+				if oldPhraseID == 0 then
+					np1comp[id+i] = maxclass
+				else
+					np1comp[id+i] = oldPhraseID
+				end
+				i = 10000
+			end
+		end		
 	end
 
 #phraseComplete
+onevent phraseComplete
+	if phraseid == event.args[0] then
+		phraseComplete = 1
+		phrasetype = event.args[1]
+		maxclass = phrasetype
+	end
 
 # constructionCOmplete
 
 
-	
 		
