@@ -1,6 +1,6 @@
 # this program allows the robot to decide how happy it is with the position the user puts it in with regards to the values assigned to its neighbours. If it is not happy, it will
 # walk off after a while - SIMPLE GRAMMAR
-# class: DETERMINER
+# class: NOUN
 
 # TODO before each use, adjust the colour for the forward button to disambiguate the robots
 # TODO before each use, set up events: neighbourInfo (2 arguments: ID, phraseID) 
@@ -34,8 +34,8 @@
 
 #---------------------------------------------------------------------------variables--------------------------------------------------------------------------------------------------
 # word-specific values
-var value[] = [84,73,69] 			# the ASCII code every letter of the word as an array - 'the'
-var class = 8								# category - determiner in this case
+var value[] = [67,65,84] 			# the ASCII code every letter of the word as an array - 'cat'
+var class = 1								# category - determiner in this case
 
 # grammaticality judgements
 var maxclass = class	# maximal phrase category achieved, e.g. NP, VP, construction etc.
@@ -50,12 +50,6 @@ var highestpid = 0	# highest phraseID below the current robot
 var phrasestart = -1
 var phraseend = -1
 
-# storage variables
-var consPossible[4] = [1,1,0,0]
-var npPossible[3] = [1,1,1]
-var npLengths [3] = [2,3,1]
-
-
 # general variables
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
 
@@ -65,11 +59,6 @@ var id = 0 					# the communication ID. Corresponds to the number of the robot i
 var bool = 0
 var i = 0
 var j = 0
-
-# completion check variables
-var np0comp[] = [class,0]
-var np1comp[] = [class,0,0]
-var np2comp[] = [0]
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------constructions-------------------------------------------------------------------------------------------------
@@ -141,11 +130,6 @@ onevent buttons
 # this event is launched regularly, therefore its contents are also checked and executed at a regular frequency
 onevent prox
 	#/////////////////////////////////////////////////////////////////////////Communication ///////////////////////////////////////////////////////////////////////////////////////////
-	if constructionComplete == 1 then
-		emit constructionComplete phraseid
-	elseif phraseComplete == 1 then
-		emit phraseComplete [id,phraseid]
-	end
 	if idpid ==1 then
 		if id == 0 then
 			idpid = 0
@@ -174,9 +158,9 @@ onevent prox
 		callsub comm
 	elseif  prox.horizontal[5] == 0 and prox.horizontal[6] == 0 and (phraseid != 1 and phraseid != -2) then
 		if class != 1 and class != 10 and class != 12  then
-			phraseid = 1
 			phrasestart = id
 			phraseend = id
+			phraseid = 1
 			callsub reset
 			emit recountPhraseID
 		else
@@ -203,14 +187,7 @@ onevent prox
 			callsub comm
 		end
 	end
-	#////////////////////////////////////////////////////////////////////////sending out the requests////////////////////////////////////////////////////////////////
-# TODO req	
-	# If the NP is not complete yet, send out a message asking for completion. Keep sending until no larger NP is possible
-	# searchNPCompletion (7 args: id, phraseID, phraseposition, phrasestart, phraseend, np0-1)
-	if phraseComplete != 0 or npPossible[0] == 1 or npPossible[1] == 1 then
-		emit searchNPCompletion [id, phraseid,phrasestart, phraseend, npPossible]	
-	end
-# TODO req end
+	
 	#/////////////////////////////////////////////////////////////////////updating the colour////////////////////////////////////////////////////////////////////////
 	if constructionComplete == 1 then
 		call leds.top(0,32,0)
@@ -312,12 +289,22 @@ onevent recountPhraseID
 	phraseid = 0
 	idpid = 1
 	callsub comm
-	
-# searchADJPCompletion (10 args: id, phraseID, phrasestart, phraseend, adjp0-4)
-# there is no chance that a determiner on any level will fill in an ADJP. Therefore, searchADJPCompletion does not need to be handled
 
+		
+## ADJP: 104
+#var adjp0[] = [7]	# ADJ
+#var adjp1[] = [7,7]	# ADJ + ADJ
+#var adjp2[] = [7,104]	# ADJ + ADJP
+#var adjp3[] = [7,14,104]	# ADJ + CONJ + ADJP
+#var adjp4[] = [104,14,104]	# ADJP + CONJ + ADJP		
+# searchADJPCompletion (10 args: id, phraseID, phrasestart, phraseend, adjp0-4)
+# there is no chance that a noun on any level will fill in an ADJP. Therefore, searchADJPCompletion does not need to be handled
+
+
+# ADVP:105
+# var advp0[] = [102,13]	# VP + ADV
 # searchADVPCompletion (5 args: id, phraseID, phrasestart, phraseend, advp0)
-# a determiner can only occur in an adverbial phrase if it is part of a VP
+# a noun can only occur in an adverbial phrase if it is part of a VP
 onevent searchADVPCompletion
 	if maxclass == 102 and event.args[4] == 1 then
 		if (event.args[0] < id and event.args[3]+1 == id) or  (event.args[0] > id and event.args[3]-1 == id) then
@@ -332,9 +319,26 @@ onevent searchADVPCompletion
 		end
 	end
 	 
-# searchNPCompletion (6 args: id, phraseID,  phrasestart, phraseend, np0-1)
-# there is no chance that a determiner on any level will fill in another NP. Therefore, searchNPCompletion does not need to be handled
+## NPs: 101
+#var np0[] = [8,1]		# DET + N
+#var np1[] = [8,104,1]	# DEP+ ADJP + N
+#var np2[] = [9]	# PRO
+# searchNPCompletion (7 args: id, phraseID,  phrasestart, phraseend, np0-1)
+onevent searchNPCompletion
+	if id > event.args[0] and id == event.args[3] +1 and maxclass == class and (event.args[4] == 1 or event.args[5] == 1) then
+		oldPhraseID = 0
+		phraseid = event.args[1]
+		if prox.horizontal[2] == 0 then
+			emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 1]
+		else
+			emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 0]
+		end
+	end
 
+## PPs: 103
+#var pp0[] = [11,101]	# P + NP
+#var pp1[] = [103,103]	# PP + PP
+#var pp2[] = [103,14,103]	# PP + CONJ + PP
 # searchPPCompletion (7 args: id, phraseID, phrasestart, phraseend, pp0-2)
 # can only complete PP if maxclass is PP or NP
 onevent searchPPCompletion
@@ -362,7 +366,21 @@ onevent searchPPCompletion
 		end
 	end
 
-# searchVPCompletion (17 args: id, phraseID, phrasestart, phraseend, vp0-12)
+## VPs: 102
+#var vp0[] = [101,2]		# NP + intransV
+#var vp1[] = [101,3,101]	# NP + transV + NP
+#var vp2[] = [101,16,101,101]	# NP + transV2 + NP + NP
+#var vp3[] = [101,4,104]	# NP + be + ADJP
+#var vp4[] = [101, 2,103]	# NP + intransV + PP
+#var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
+#var vp6[] = [101,16,101,101,103]	# NP + transV2 + NP + NP + PP
+#var vp7[] = [101,17,10,2]	# NP + do + NEG + intransV
+#var vp8[] = [101,17,10,3,101]	# NP + do + NEG + transV + NP
+#var vp9[] = [101,17,10,16,101,101]	# NP + do + NEG + transV2 + NP + NP
+#var vp10[] = [101,17,10,2,103]	# NP + do + NEG + intransV + PP
+#var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
+#var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
+## searchVPCompletion (17 args: id, phraseID, phrasestart, phraseend, vp0-12)
 # can only complete a VP if maxclass = 101 or maxclass = 103
 onevent searchVPCompletion
 	bool = 0
@@ -388,7 +406,12 @@ onevent searchVPCompletion
 			emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 0]
 		end
 	end
-
+				
+## constructions: 100
+#var c0[] = [102]	# VP
+#var c1[] = [105]	# ADVP
+#var c2[] = [100,14,100]	# construction + CONJ + construction
+#var c3[] = [100,15,100]	# construction + SUB + construction
 # searchConsCompletion (5 args: id, phraseID, phrasestart, phraseend,cons0,cons1,cons2,cons3)
 # only relevant when the maxclass is 100
 onevent searchConsCompletion
@@ -404,51 +427,7 @@ onevent searchConsCompletion
 	end
 
 # updatePhraseBoundary(5 args: id, phraseID, oldPhraseID, maxclass, border[bool])
-onevent updatePhraseBoundary 
-	if id < event.args[0] and phraseid == event.args[1] then
-		phraseend = event.args[0]
-	elseif id > event.args[0] and phraseid == event.args[1] then
-		phrasestart = event.args[0]
-	end
-	if npPossible[0] == 1 then
-		i = 0
-		call leds.top(32,32,32)
-		while (id+i) < npLengths[0] do
-			if np0comp[id+i] ==  0 and np0[id+i] == event.args[3] then
-				if event.args[2] == 0 then
-					np0comp[id+i] = maxclass
-					call sound.system(3)
-				else
-					np0comp[id+i] = oldPhraseID
-				end
-				i = 10000
-			end
-		end
-		i = 0
-		j = 1
-		while i < npLengths[0] do
-			if np0comp[i] == 0 then
-				j = 0
-			end
-			i++
-		end
-		if j == 1 then
-			phraseComplete = 1
-			emit phraseComplete [phraseid, phrasetype]
-		end
-	elseif npPossible[1] == 1 then
-		i = 1
-		while (id+i) < npLengths[1] do
-			if np1comp[id+i] ==  0 and np1[id+i] == maxclass then
-				if oldPhraseID == 0 then
-					np1comp[id+i] = maxclass
-				else
-					np1comp[id+i] = oldPhraseID
-				end
-				i = 10000
-			end
-		end		
-	end
+# is only relevant to classes that are the core of a phrase
 
 #phraseComplete
 onevent phraseComplete
@@ -464,15 +443,9 @@ onevent constructionComplete
 		constructionComplete = 1
 	end
 
-		
 sub reset
 	constructionComplete = 0
 	phraseComplete = 0
-	np0comp = [class,0]	
-	np1comp = [class,0,0]
-	np2comp = [0]
-	consPossible = [1,1,0,0]
-	npPossible = [1,1,1]
 	maxclass = class
 	phrasetype = 0		# type of the phrase corresponding to the phraseID	
-	oldPhraseID = 0
+	oldPhraseID = 0		
