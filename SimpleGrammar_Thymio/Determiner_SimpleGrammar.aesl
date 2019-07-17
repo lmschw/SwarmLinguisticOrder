@@ -4,7 +4,7 @@
 
 # TODO before each use, adjust the colour for the forward button to disambiguate the robots
 # TODO before each use, set up events: neighbourInfo (2 arguments: ID, phraseID) 
-# searchNPCompletion (6 args: id, phraseID,  phrasestart, phraseend, np0-1)
+# searchNPCompletion (7 args: id, phraseID,  phrasestart, phraseend, np0-1)
 # searchVPCompletion (17 args: id, phraseID, phrasestart, phraseend, vp0-12)
 # searchPPCompletion (7 args: id, phraseID, phrasestart, phraseend, pp0-2)
 # searchADJPCompletion (9 args: id, phraseID, phrasestart, phraseend, adjp0-4)
@@ -192,7 +192,7 @@ onevent prox
 			callsub comm
 		end
 	end
-	#////////////////////////////////////////////////////////////////////////SENDING OUT THE REQUESTS////////////////////////////////////////////////////////////////
+	#////////////////////////////////////////////////////////////////////////sending out the requests////////////////////////////////////////////////////////////////
 # TODO req	
 	# If the NP is not complete yet, send out a message asking for completion. Keep sending until no larger NP is possible
 	# searchNPCompletion (7 args: id, phraseID, phraseposition, phrasestart, phraseend, np0-1)
@@ -200,6 +200,15 @@ onevent prox
 		emit searchNPCompletion [id, phraseid,phrasestart, phraseend, npPossible]	
 	end
 # TODO req end
+	#/////////////////////////////////////////////////////////////////////updating the colour////////////////////////////////////////////////////////////////////////
+	if constructionComplete == 1 then
+		call leds.top(0,32,0)
+	elseif phraseComplete == 1 then
+		call leds.top(32,32,0)
+	else
+		call leds.top(32,0,0)
+	end
+
 # only does something if the robot is the first robot in the line, i.e. does not have a neighbour behind it
 sub comm
 	if prox.horizontal[2] > 2000 and (prox.horizontal[5] == 0 or prox.horizontal[6] == 0) then
@@ -425,7 +434,10 @@ onevent phraseComplete
 		maxclass = phrasetype
 	end
 
-# constructionCOmplete
-
+# constructionComplete
+onevent constructionComplete
+	if phraseid == event.args[0] then
+		constructionComplete = 1
+	end
 
 		
