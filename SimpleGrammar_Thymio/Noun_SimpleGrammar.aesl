@@ -49,6 +49,7 @@ var idpid = 0 # 0 when establishing IDs, 1 when establishing phraseIDs
 var highestpid = 0	# highest phraseID below the current robot
 var phrasestart = -1
 var phraseend = -1
+var phrasecore = -1
 
 # general variables
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
@@ -59,6 +60,7 @@ var id = 0 					# the communication ID. Corresponds to the number of the robot i
 var bool = 0
 var i = 0
 var j = 0
+var updateComplete = 0
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------constructions-------------------------------------------------------------------------------------------------
@@ -306,7 +308,7 @@ onevent recountPhraseID
 # searchADVPCompletion (5 args: id, phraseID, phrasestart, phraseend, advp0)
 # a noun can only occur in an adverbial phrase if it is part of a VP
 onevent searchADVPCompletion
-	if phraseid == event.args[1] then
+	if phraseid == event.args[1] and updateComplete == 1 and phraseComplete == 0 then
 		emit searchADVPCompletion event.args[0:4]
 	elseif maxclass == 102 and event.args[4] == 1 then
 		if (event.args[0] < id and event.args[3]+1 == id) or  (event.args[0] > id and event.args[3]-1 == id) then
@@ -327,16 +329,19 @@ onevent searchADVPCompletion
 #var np2[] = [9]	# PRO
 # searchNPCompletion (7 args: id, phraseID,  phrasestart, phraseend, np0-1)
 onevent searchNPCompletion
-	if phraseid == event.args[1] then
-		emit searchNPCompletion event.args[0:6]
-	elseif id > event.args[0] and id == event.args[3] +1 and maxclass == class and (event.args[4] == 1 or event.args[5] == 1) then
-		oldPhraseID = 0
-		call sound.system(3)
-		phraseid = event.args[1]
+	if phraseid == event.args[1] and updateComplete == 1 and phraseComplete == 0 then
+		emit searchNPCompletion event.args[0:11]
+	elseif id > event.args[0] and id == (event.args[3] +1) and maxclass == class and (event.args[4] == 1 or event.args[5] == 1) then
+		if event.args[8] == 0 or event.args[11] == 0 then
+				phrasecore = event.args[0]
+
 		if prox.horizontal[2] == 0 then
 			emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 1]
+			updateComplete = 0
 		else
 			emit updatePhraseBoundary [id, phraseid, oldPhraseID, maxclass, 0]
+			updateComplete = 0
+		end
 		end
 	end
 
@@ -460,3 +465,12 @@ sub reset
 	maxclass = class
 	phrasetype = 0		# type of the phrase corresponding to the phraseID	
 	oldPhraseID = 0		
+
+onevent updateCompleted
+	if event.args[0] == phrasecore and event.args[1] == id then
+		updateComplete = 1
+		call leds.top(32,12,32)
+		oldPhraseID = 0
+		call sound.system(3)
+		phraseid = event.args[2]
+	end

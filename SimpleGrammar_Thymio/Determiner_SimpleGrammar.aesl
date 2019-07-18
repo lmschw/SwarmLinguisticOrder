@@ -193,7 +193,7 @@ onevent prox
 	# If the NP is not complete yet, send out a message asking for completion. Keep sending until no larger NP is possible
 	# searchNPCompletion (7 args: id, phraseID, phraseposition, phrasestart, phraseend, np0-1)
 	if phraseComplete != 0 or npPossible[0] == 1 or npPossible[1] == 1 then
-		emit searchNPCompletion [id, phraseid,phrasestart, phraseend, npPossible]	
+		emit searchNPCompletion [id, phraseid,phrasestart, phraseend, npPossible, np0comp, np1comp]	
 	end
 # TODO req end
 	#/////////////////////////////////////////////////////////////////////updating the colour////////////////////////////////////////////////////////////////////////
@@ -387,59 +387,49 @@ onevent searchConsCompletion
 
 # updatePhraseBoundary(5 args: id, phraseID, oldPhraseID, maxclass, border[bool])
 onevent updatePhraseBoundary 
-	if id < event.args[0] and phraseid == event.args[1] and phraseend == event.args[0]-1 then
-		phraseend = event.args[0]
-		if npPossible[0] == 1 then
-			i = 0
-			call leds.top(32,32,32)
-			while (id+i) < npLengths[0] do
-				if np0comp[id+i] ==  0 and np0[id+i] == event.args[3] then
-					if event.args[2] == 0 then
-						np0comp[id+i] = maxclass
-						call leds.top(32,12,32)
-					else
-						np0comp[id+i] = oldPhraseID
-					end
-					i = 10000
-				end
-				i++
+	# if the sender is further down the line and the sender is just one robot away from the phrase end, update the phraseend
+	if id < event.args[0]and phraseend == event.args[0]-1 then
+		i = 0
+		call leds.top(0,0,32)
+		for i in 0:1 do
+			if np0comp[i] == 0 and np0[i] == event.args[3] then
+			call sound.system(3)
+				np0comp[i] = event.args[3]
+				phraseend = event.args[0]
+				emit updateCompleted [id, event.args[0], phraseid]
 			end
+		end
+		i = 0
+		for i in 0:2 do
+			if np1comp[i] == 0 and np1[i] == event.args[3] then
+				np1comp[i] = event.args[3]
+				phraseend = event.args[0]
+				emit updateCompleted [id, event.args[0], phraseid]
+			end
+		end
 			i = 0
-			j = 1
+		j = 1
 			while i < npLengths[0] do
 				if np0comp[i] == 0 then
 					j = 0
 				end
 				i++
 			end
-		elseif npPossible[1] == 1 then
-			i = 1
-			while (id+i) < npLengths[1] do
-				if np1comp[id+i] ==  0 and np1[id+i] == maxclass then
-					if oldPhraseID == 0 then
-						np1comp[id+i] = maxclass
-					else
-						np1comp[id+i] = oldPhraseID
-					end
-					i = 10000
-				end
-				i++
-			end		
-			i = 0
-			bool = 1
+		i = 0
+		bool = 1
 			while i < npLengths[1] do
 				if np1comp[i] == 0 then
 					bool = 0
 				end
 				i++
 			end
-		end
 		if j == 1 or bool == 1 then
 				phraseComplete = 1
 				emit phraseComplete [phraseid, phrasetype]
 				maxclass = phrasetype
 		end
 	end
+		
 
 #phraseComplete
 onevent phraseComplete
@@ -460,9 +450,9 @@ onevent constructionComplete
 sub reset
 	constructionComplete = 0
 	phraseComplete = 0
-#	np0comp = [class,0]	
-#	np1comp = [class,0,0]
-#	np2comp = [0]
+	np0comp = [class,0]	
+	np1comp = [class,0,0]
+	np2comp = [0]
 	consPossible = [1,1,0,0]
 	npPossible = [1,1,1]
 	maxclass = class
