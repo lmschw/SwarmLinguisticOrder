@@ -175,7 +175,7 @@ onevent prox
 		if idpid == 0 and id != 0 then
 			idpid = 1
 			emit idModeSwitch idpid
-		elseif idpid == 1 and phraseid >= 0 then
+		elseif idpid == 1 and phraseid <= 0 then
 			idpid = 0
 			emit idModeSwitch idpid
 		end

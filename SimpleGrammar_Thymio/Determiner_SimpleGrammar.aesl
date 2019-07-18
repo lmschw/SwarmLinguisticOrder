@@ -130,7 +130,7 @@ call prox.comm.enable(1)
 onevent prox
 	#/////////////////////////////////////////////////////////////////////////Communication ///////////////////////////////////////////////////////////////////////////////////////////
 	if constructionComplete == 1 then
-		emit constructionComplete phraseid
+		emit constructionComplete [id,phraseid]
 	elseif phraseComplete == 1 then
 		emit phraseComplete [id,phraseid]
 	end
@@ -164,14 +164,10 @@ onevent prox
 	elseif  prox.horizontal[5] == 0 and prox.horizontal[6] == 0 and (phraseid != 1 and phraseid != -2) then
 		if class != 1 and class != 10 and class != 12  then
 			phraseid = 1
-			phrasestart = id
-			phraseend = id
 			callsub reset
 			emit recountPhraseID
 		else
 			phraseid = -2
-			phrasestart = -1
-			phraseend = -1
 			callsub reset
 			emit recountPhraseID
 		end
@@ -222,8 +218,6 @@ sub comm
 		# if the PhraseIDs are being established, the PhraseID of the last robot is 1 and it starts broadcasting its PhraseID
 		elseif  idpid == 1 then
 			phraseid = 1
-			phrasestart = id
-			phraseend = id
 			callsub reset
 			emit neighbour_value [id, phraseid]
 			emit recountPhraseID
@@ -240,15 +234,8 @@ sub comm
 onevent idModeSwitch
 	if event.args[0] == 0 and (phraseid == -1 or phraseid == 0) then
 		idpid = 1
-		if class != 1 and class != 10 and class != 12 then
-			#phraseid = -1
-			callsub comm
-			#emit recountPhraseID
-		else
-			#phraseid = 0
-			callsub comm
-			#emit recountPhraseID
-		end
+		phraseid = 0
+		callsub comm
 	elseif event.args[0] == 1 and id == 0 then
 		emit recountID
 		idpid = 0
@@ -425,11 +412,6 @@ onevent updatePhraseBoundary
 				end
 				i++
 			end
-			if j == 1 then
-				phraseComplete = 1
-				emit phraseComplete [phraseid, phrasetype]
-				maxclass = phrasetype
-			end
 		elseif npPossible[1] == 1 then
 			i = 1
 			while (id+i) < npLengths[1] do
@@ -443,6 +425,19 @@ onevent updatePhraseBoundary
 				end
 				i++
 			end		
+			i = 0
+			bool = 1
+			while i < npLengths[1] do
+				if np1comp[i] == 0 then
+					bool = 0
+				end
+				i++
+			end
+		end
+		if j == 1 or bool == 1 then
+				phraseComplete = 1
+				emit phraseComplete [phraseid, phrasetype]
+				maxclass = phrasetype
 		end
 	end
 
@@ -465,11 +460,18 @@ onevent constructionComplete
 sub reset
 	constructionComplete = 0
 	phraseComplete = 0
-	np0comp = [class,0]	
-	np1comp = [class,0,0]
-	np2comp = [0]
+#	np0comp = [class,0]	
+#	np1comp = [class,0,0]
+#	np2comp = [0]
 	consPossible = [1,1,0,0]
 	npPossible = [1,1,1]
 	maxclass = class
 	phrasetype = 0		# type of the phrase corresponding to the phraseID	
 	oldPhraseID = 0
+	if phraseid > 0 then
+		phrasestart = id
+		phraseend = id
+	else
+		phrasestart = -1
+		phraseend = -1
+	end
