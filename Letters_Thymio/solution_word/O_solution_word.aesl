@@ -1,0 +1,424 @@
+# this program allows the robot to decide how happy it is with the position the user puts it in with regards to the values assigned to its neighbours. It allows the administrator to specify a word which will constitute the solution. Multiple options can be configured in the OPTIONS section to alter the behaviour of the robots.
+
+#----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------BEGIN OPTIONS-----------------------------------------------------------------------------------------
+var speed = 200							# how fast the robots move away
+var stopMovementAfter = 20		# how long they keep moving when they walk away
+var changerate = 1 					# the higher the rate, the slower the escape; determines how long the robot waits if it is unhappy; set changerate = 0 to prevent escape behaviour
+var hints_ENABLED = 1				# provide hints on button press if 1, no hints if 0
+var sound = 1								# 1: sounds are played upon colour change; 0: muted
+var hints_duration = 200			# how long the hints are displayed if they are enabled
+
+# solution options
+var solutionAvailable = 1				# set to 1 if a solution is given and to 0 if free play
+var solutionWord[] = [67,65,84]	# enter the solution word as an array of the ASCII codes of the letters: 'cat'
+var lengthSolution = 3					# enter the number of letters in the word
+
+# ---------------------------------------------------------------------------END OPTIONS-----------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
+var value = 79 			# the ASCII code of the letter
+var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
+var nextval = 0 			# the value of the next robot. This is the robot in front
+var prevval = 0			# the value of the previous robot. This is the robot behind this robot
+var nextsave = 0 		# the last value stored for the next robot. Used to measure if the neighbours have changed
+var prevsave = 0 		# the last value stored for the previous robot. Used to measure if the neighbours have changed
+var change					# boolean variable to indicate if there have been any changes
+var walksies = 0			# counter to determine when to stop moving
+var changeratemax = 10000	# the maximum number used to model the happiness decrease speed
+var changerateupdate = changeratemax	# the variable used to keep track of the happiness decrease rate
+var happiness = -1		# how happy the robot is where it is at the moment. -1 if it does not have neighbours
+var displayColour = 0	# used for the hints. If 0, the colour corresponding to the overall happiness is shown. If 1, the colour associated with the hint is shown
+
+# solution option variables
+var solutionPrevs[10]	#stores the previous letters in the solution
+var solutionNexts[10]	# stores the next letters in the solution
+var numberOfMatches = 0	# stores the number of occurrences of the letter in the solution word
+var i = 0						# auxiliary variables for loops
+var j = 0						# auxiliary variables for loops
+var prevMatch = 0		# boolean to indicate if the previous robots value matches the value's position in the solution word
+var nextMatch = 0		# boolean to indicate if the next robots value matches the value's position in the solution word
+var fullMatch = 0			# boolean to indicate if both neighbours match the solution word
+
+# frequencies
+var prev[27]				# array storing all the frequencies for the previous values
+var next[27]				# array storing all the frequencies for the subsequent values
+
+# initializing the context frequencies []a. abc + space
+prev[0] = 0
+prev[1] = 27
+prev[2] = 141
+prev[3] = 16
+prev[4] = 4
+prev[5] = 33
+prev[6] = 11
+prev[7] = 57
+prev[8] = 157
+prev[9] = 8
+prev[10] = 0
+prev[11] = 55
+prev[12] = 44
+prev[13] = 35
+prev[14] = 35
+prev[15] = 68
+prev[16] = 0
+prev[17] = 94
+prev[18] = 45
+prev[19] = 60
+prev[20] = 0
+prev[21] = 15
+prev[22] = 15
+prev[23] = 0
+prev[24] = 7
+prev[25] = 1
+prev[26] = 61
+
+# initializing the context frequencies a[]. abc + space
+next[0] = 12
+next[1] = 11
+next[2] = 26
+next[3] = 25
+next[4] = 3
+next[5] = 14
+next[6] = 11
+next[7] = 1
+next[8] = 9
+next[9] = 0
+next[10] = 9
+next[11] = 57
+next[12] = 68
+next[13] = 257
+next[14] = 35
+next[15] = 38
+next[16] = 0
+next[17] = 146
+next[18] = 38
+next[19] = 47
+next[20] = 83
+next[21] = 28
+next[22] = 39
+next[23] = 1
+next[24] = 7 
+next[25] = 0
+next[26] = 20
+
+# create the solution environments
+if solutionAvailable == 1 then
+	i = 0
+	j = 0
+	while i < lengthSolution do
+		if solutionWord[i] == value then
+			if i == 0 and i != lengthSolution-1 then
+				solutionPrevs[j] = 26
+				solutionNexts[j] = solutionWord[i+1]
+				j++
+			elseif i != 0 and i != lengthSolution-1 then
+				solutionPrevs[j] = solutionWord[i-1]
+				solutionNexts[j] = solutionWord[i+1]
+				j++
+			elseif i != 0 and i == lengthSolution-1 then
+				solutionPrevs[j] = solutionWord[i-1]
+				solutionNexts[j] = 26
+				j++
+			end
+			numberOfMatches++
+		end
+		i++
+	end
+end
+
+# setting the timer duration
+timer.period[0] = hints_duration	# used for the hints. Decides how long the hint colours are displayed
+
+# resetting the leds so that no previous colour setting interferes
+call leds.top(0,0,0)
+
+# resetting the sound so that no previous sounds interfere
+call sound.system(-1)
+
+# enabling communication
+call prox.comm.enable(1)
+
+#----------------------------------------------------------------------------END INITIALISATION----------------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------G E N E R A L--------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN BUTTONS BLOCK-------------------------------------------------------------------------------
+# this event handler deals with the buttons. These are not part of the actual behaviour but rather used for safety, disambiguation and hints
+onevent buttons
+	# while the left button is pressed, the robot will show a colour. Different colours can be used if the robots need to be disambiguated.
+	if (button.left == 1) then
+		call leds.top(32,15,32) #purple
+	end
+	
+	# if the center button is pressed, the robot stops moving. Safety measure in case the robot runs off or is at risk
+	if button.center == 1 then
+		motor.left.target = 0
+		motor.right.target = 0
+	end
+	
+	# if the backward button is pressed and hints are enabled, the robot will display a colour which indicates how happy it is with its previous neighbour. If that neighbour is perfect but possibly with another neighbour on the other side, it will light up cyan. It will also light up half circle around the button to indicate the direction
+	if  button.backward == 1 and hints_ENABLED == 1 then
+		callsub checkMatches
+		displayColour = 1
+		call leds.circle(0,0,15,15,15,15,15,0)
+		if prevMatch > 0 then
+			call leds.top(0,32,32)
+		elseif prevval == 0 then
+			call leds.top(32,32,32)
+		elseif prev[prevval-65] > 100 then
+			call leds.top(0,32,0)
+		elseif prev[prevval-65] > 50 then
+			call leds.top(32,32,0)
+		else
+			call leds.top(32,0,0)
+		end
+	else
+		call leds.circle(0,0,0,0,0,0,0,0)
+	end
+
+	# if the forward button is pressed and hints are enabled, the robot will display a colour which indicates how happy it is with its next neighbour.  If that neighbour is perfect but possibly with another neighbour on the other side, it will light up cyan. It will also light up half circle around the button to indicate the direction
+	if  button.forward == 1 and hints_ENABLED == 1 then
+		callsub checkMatches
+		displayColour = 1
+		call leds.circle(15,15,15,0,0,0,15,15)
+		if nextMatch > 0 then
+			call leds.top(0,32,32)
+		elseif nextval == 0 then
+			call leds.top(32,32,32)
+		elseif next[nextval-65] > 100 then
+			call leds.top(0,32,0)
+		elseif next[nextval-65] > 50 then
+			call leds.top(32,32,0)
+		else
+			call leds.top(32,0,0)
+		end
+	else
+		call leds.circle(0,0,0,0,0,0,0,0)
+	end
+	
+#----------------------------------------------------------------------------END BUTTONS BLOCK-------------------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN TIMER BLOCK--------------------------------------------------------------------------------
+# the timer is used to keep track of how long to display the hint if hints are enabled and either the backward or the forward button is pressed
+onevent timer0
+	displayColour = 0
+
+#----------------------------------------------------------------------------END TIMER BLOCK--------------------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN PROX BLOCK---------------------------------------------------------------------------------
+# this event is launched at regular intervals. Therefore, any code within the prox event will be executed regularly. 
+# this code segment handles the updates from the subroutines it calls and updates the colour
+onevent prox
+	# this segment deals with the escape movement. If the escape movement is activated and the robot does not have any neighbours, it checks if it is moving forward of 
+	#backward and adjusts the direction if it has been turning. After a certain while - timed using the counter 'walksies' - the robot stops and resets 'walksies' for the next 
+	#escape
+	if prox.horizontal[0] ==0 and prox.horizontal[4] == 0 and prox.horizontal[5] == 0 and prox.horizontal[6] == 0 then
+		if motor.left.target > 0 and walksies < stopMovementAfter then
+			motor.left.target = speed
+			motor.right.target = speed
+			walksies++
+		elseif motor.left.target < 0 and walksies < stopMovementAfter then
+			motor.left.target = -speed
+			motor.right.target = -speed
+			walksies++
+		else
+			motor.left.target = 0
+			motor.right.target = 0
+			walksies = 0
+		end
+	end
+	
+	# if the robot does not currently have an ID, the comm subroutine is called to determine the ID.
+	if id==0 then
+		callsub comm
+	end
+	
+	# if the robot has an ID, it broadcasts its value and its ID. That way, the receiving robots can check if they should consider the value
+	if id !=0 then
+		emit neighbour_value [id, value]
+	end
+	
+	# if the robot does not have one or both neighbour, the corresponding variable is set to 0 and the recount event is emitted to signal that the IDs need to be reestablished.
+	if prox.horizontal[2] ==0 and (prox.horizontal[5] ==0  or prox.horizontal[6] == 0) then
+		nextval = 0
+		prevval = 0
+		emit recount
+	elseif prox.horizontal[2] == 0 then
+		nextval = 0
+		emit recount
+	elseif  prox.horizontal[5] == 0 or prox.horizontal[6] == 0 then
+		prevval = 0
+		emit recount
+	end
+	
+	# first, the changecheck subroutine is called to establish if there has been any changes to the neighbours. Then, this update influences the happycheck subroutine which determines
+	# how happy the robot currently is.
+	callsub changecheck
+	callsub happycheck
+
+	# if there is no hint being displayed, depending on the happiness value, the top leds light up in a different colour. cyan = perfect; no neighbours = blue; happy = green; ok = yellow; red = unhappy. If sound is enabled, a sound is produced upon change of neighbour
+	if displayColour == 0 then
+		if happiness == -2 then
+			call leds.top(0,32,32)
+			if change == 1 and sound == 1 then
+				call sound.system(7)
+			end
+		elseif happiness == -1 then
+			call leds.top(32,32,32)
+		elseif  happiness > 200 then
+			call leds.top(0,32,0)
+			if change == 1 and sound == 1 then
+				call sound.system(7)
+			end
+		elseif  happiness > 100 then
+			call leds.top(32,32,0)
+			if change == 1 and sound == 1 then
+				call sound.system(6)
+			end
+		else
+			call leds.top(32,0,0)
+			if change == 1 and sound == 1 then
+				call sound.system(4)
+			end
+		end
+	end
+
+#----------------------------------------------------------------------------END PROX BLOCK-------------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------C O M M U N I C A T I O N----------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN PROX.COMM BLOCK--------------------------------------------------------------------	
+# this event handler deals with incoming communication. It is only used to establish the ID and check if the order is preserved. 	
+onevent prox.comm
+	# if the robot does not yet have an ID or has lost it and if the robot receives the ID of another robot, it increments the received value and sets the result as its ID.
+	# then, it starts broadcasting its ID.
+	if id == 0 and prox.comm.rx != 0 then
+		id = prox.comm.rx + 1
+		prox.comm.tx = id
+	end
+	
+	# as the prox.comm communication has a limited range of only 15cm, the only values it should be receiving are one lower or higher than its own ID. If that is not the
+	# case, the robots have been moved and an event is emitted to indicate that the order has changed and that the IDs need to be restablished
+	if prox.comm.rx != id-1 then
+		if  prox.comm.rx != id+1 then
+			emit recount
+		end
+	end
+
+#----------------------------------------------------------------------------END PROX.COMM BLOCK-----------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN ID ESTABLISH BLOCK-------------------------------------------------------------------			
+# this subroutine deals with checking if a robot should be first in its line or not. If it does not have a previous neighbour, i.e. a robot behind it, the id is set to 1 and broadcast. Iin all other cases, the id is set to 0. This is done to ensure every robot that is not at the beginning of a line has its ID reset to 0.
+sub comm
+	if prox.horizontal[2] > 2000 and (prox.horizontal[5] == 0 or prox.horizontal[6] == 0) then
+		id = 1
+		prox.comm.tx = id
+	else
+		id = 0
+	end
+
+#----------------------------------------------------------------------------END ID ESTABLISH BLOCK---------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN RECOUNT BLOCK------------------------------------------------------------------------		
+# this event handler is used to reset the robot into a stage where it does not know its position in the line. This can be used when the robot order is changed.
+# the only thing it does is to call the comm subroutine which handles initial ID assignments.
+onevent recount # takes 0 arguments
+	callsub comm
+	
+#----------------------------------------------------------------------------END RECOUNT BLOCK--------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------V A L U E   H A N D L I N G----------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN NEIGHBOUR BLOCK---------------------------------------------------------------------	
+# whenever the robot receives a neighbour_value event, it checks if it is entitled to handle these events. For that, it needs to have an id, i.e. it needs to be in the line
+# if it is in the line, it checks if the value is relevant to it. Only the direct neighbours values are considered relevant. These are the robots with the IDs that are the robot's 
+# own ID +/-1. If that is the case, the values for the previous or next robot are updated accordingly. As the IDs count upwards from the end, the value is assigned to
+# prevval if it is lower and to nextval if it is higher
+onevent neighbour_value # takes 2 arguments: ID and value
+	if id != 0 then
+		if event.args[0] == id-1 then
+			prevval = event.args[1]
+		elseif  event.args[0] == id+1 then
+			nextval = event.args[1]
+		end
+	end
+
+#----------------------------------------------------------------------------END NEIGHBOUR BLOCK-----------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN HAPPINESS CHECK BLOCK-------------------------------------------------------------		
+# this subroutine establishes how happy the robot currently is at its position with regards to its neighbours.	
+sub happycheck
+	# if there has not been any change since the last time this subroutine was called, the happiness is gradually reduced to help the user to possibly determine where
+	# the error might lie. However, happiness is only actually decreased if the changerate is not zero.
+ 	if change == 0 then
+ 		if happiness > 20  then
+ 			if changerateupdate % changerate == 0 then
+ 				 happiness = happiness-1
+ 			end
+ 			changerateupdate--
+ 		# if the robot is too unhappy, it walks away. the movement stops after a while. This is taken care of in the prox block
+ 		elseif happiness > -1 then
+ 			# if there is nothing in front of it, it walks straight ahead
+ 			if prox.horizontal[2] == 0 then
+ 				motor.left.target = speed
+ 				motor.right.target = speed
+ 			# if there is something in front but nothing at the back, it moves straight backwards
+ 			elseif prox.horizontal[5] == 0 and prox.horizontal[6] == 0 then
+ 				motor.left.target = -speed
+ 				motor.right.target = -speed
+ 			# if it is in the middle of two robots, it turns left
+ 			else
+ 				motor.left.target = speed
+ 				motor.right.target = 0
+ 			end
+ 		end
+ 	
+ 	 # checks if the robot's neighbours are matches according to the solution word. If both neighbours are perfect, happiness = -2
+	 # if the robot has two neighbours, it does the sum.
+	 # if the robot only has one neighbour, the other side is considered an empty space
+	 # if the robot does not have neighbours, happiness = -1
+ 	else
+ 		callsub checkMatches
+ 		if fullMatch == 1 then
+ 			happiness = -2
+ 		elseif prevval != 0 and nextval != 0 then
+ 			happiness = prev[prevval-65] + next[nextval-65]
+ 		elseif nextval != 0 then
+ 			happiness = prev[26] + next[nextval-65]
+ 		elseif prevval != 0 then
+ 			happiness = prev[prevval-65] + next[26]
+ 		else
+ 			happiness = -1
+ 		end
+ 	end
+
+# this subroutine checks if the current neighbours are a partial or perfect match for the solution word and the robot providing the solution option is enabled 	
+sub checkMatches
+ 	if solutionAvailable == 1 then
+ 			i = 0
+ 			prevMatch = 0
+ 			nextMatch = 0
+ 			fullMatch = 0
+ 			while i < numberOfMatches do
+ 				if (prevval != 0 and solutionPrevs[i] == prevval) or (prevval == 0 and solutionPrevs[i] == 26) then
+ 					prevMatch = i+1
+ 				end
+ 				if (nextval != 0 and solutionNexts[i] == nextval) or (nextval == 0 and solutionNexts[i] == 26) then
+ 					nextMatch = i+1
+ 				end
+ 				if prevMatch == nextMatch and prevMatch != 0 and nextMatch != 0 then
+ 					fullMatch = 1
+ 				end
+ 				i++
+ 			end
+ 		end
+
+#----------------------------------------------------------------------------END HAPPINESS CHECK BLOCK---------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN CHANGE CHECK BLOCK----------------------------------------------------------------	
+# this subroutine checks if there has been any change to the neighbours since the subroutine was last called	 	
+sub changecheck
+	# if the saved and the current value of the previous and the subsequent robot are the same, no change has been made
+	if prevval == prevsave and nextval == nextsave then
+		change = 0
+	# if one or both values are different, then there has been some change,  the saved states are updated and the changerateupdate value is reset to the max
+	else
+		change = 1
+		changerateupdate = changeratemax
+		prevsave = prevval
+		nextsave = nextval
+	end
+
+#----------------------------------------------------------------------------END CHANGE CHECK BLOCK------------------------------------------------------------------	
+	
