@@ -118,7 +118,15 @@ onevent buttons
 		displayColour = 1
 		call leds.circle(0,0,15,15,15,15,15,0)
 		if prevval == 0 then
-			call leds.top(32,32,32)
+			if nextval == 0 then
+				call leds.top(32,32,32)
+			elseif prev[26] > 100 then
+				call leds.top(0,32,0)
+			elseif prev[26] > 50 then
+				call leds.top(32,32,0)
+			else
+				call leds.top(32,0,0)
+			end
 		elseif prev[prevval-65] > 100 then
 			call leds.top(0,32,0)
 		elseif prev[prevval-65] > 50 then
@@ -134,9 +142,17 @@ onevent buttons
 	# half circle around the button to indicate the direction
 	if  button.forward == 1 and hints_ENABLED == 1 then
 		displayColour = 1
-		call leds.circle(15,15,15,0,0,0,15,15)
+		call leds.circle(0,0,15,15,15,15,15,0)
 		if nextval == 0 then
-			call leds.top(32,32,32)
+			if prevval == 0 then
+				call leds.top(32,32,32)
+			elseif next[26] > 100 then
+				call leds.top(0,32,0)
+			elseif next[26] > 50 then
+				call leds.top(32,32,0)
+			else
+				call leds.top(32,0,0)
+			end
 		elseif next[nextval-65] > 100 then
 			call leds.top(0,32,0)
 		elseif next[nextval-65] > 50 then
