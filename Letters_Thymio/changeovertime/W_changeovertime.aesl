@@ -5,12 +5,12 @@
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
 
 # OPTIONS
-var speed = 100			# how fast the robots move away
+var speed = 200			# how fast the robots move away
 var stopMovementAfter = 20	# how long they move when they walk away
-var changerate = 1 	# changerate == 2: 12s; 3: 18s; 30: 171s;; max: 125; the higher the rate, the slower the escape; determines how long the robot waits if it is unhappy
+var changerate = 1 	# changerate == 2: 12s; 3: 18s; 30: 171s;; max: 125; the higher the rate, the slower the escape; determines how long the robot waits if it is unhappy; set changerate = 0 to prevent escape behaviour
 
-
-var value = 87			# the ASCII code of the letter
+# variables
+var value = 87 			# the ASCII code of the letter
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
 var nextval = 0 			# the value of the next robot. This is the robot in front
 var prevval = 0			# the value of the previous robot. This is the robot behind this robot
@@ -21,6 +21,28 @@ var walksies = 0		# counter to determine when to stop moving
 var changerateupdate = 10000
 var happiness = -1	# how happy the robot is where it is at the moment. -1 if it does not have neighbours
 
+# for average of last 10 sensor readings
+var lastHorizontal0readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal1readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal2readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal3readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal4readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal5readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal6readings[] = [0,0,0,0,0,0,0,0,0,0]
+
+var roundPointer = 0
+
+var avgH0 = 0
+var avgH1 = 0
+var avgH2 = 0
+var avgH3 = 0
+var avgH4 = 0
+var avgH5 = 0
+var avgH6 = 0
+
+var i = 0
+
+# frequencies
 var prev[27]				# array storing all the frequencies for the previous values
 var next[27]				# array storing all the frequencies for the subsequent values
 
@@ -82,6 +104,7 @@ next[24] = 4
 next[25] = 0
 next[26] = 171
 
+
 # resetting the leds so that no previous colour setting interferes
 call leds.top(0,0,0)
 
@@ -109,7 +132,20 @@ onevent buttons
 # this event is launched at regular intervals. Therefore, any code within the prox event will be executed regularly. 
 # this code segment handles the updates from the subroutines it calls and updates the colour
 onevent prox
-	if prox.horizontal[0] ==0 and prox.horizontal[4] == 0 and prox.horizontal[5] == 0 and prox.horizontal[6] == 0 then
+	# updating the last reading arrays
+	lastHorizontal0readings[roundPointer] = prox.horizontal[0]
+	lastHorizontal1readings[roundPointer] = prox.horizontal[1]
+	lastHorizontal2readings[roundPointer] = prox.horizontal[2]
+	lastHorizontal3readings[roundPointer] = prox.horizontal[3]
+	lastHorizontal4readings[roundPointer] = prox.horizontal[4]
+	lastHorizontal5readings[roundPointer] = prox.horizontal[5]
+	lastHorizontal6readings[roundPointer] = prox.horizontal[6]
+	
+	# computing the average of the last 10 sensor readings for all horizontal distance sensors
+	callsub average
+	
+	# escape movement
+	if (avgH0 < 10 and avgH0 > -10) and (avgH4 < 10 and avgH4 > -10)  and (avgH5 < 10 and avgH5 > -10) and (avgH6 < 10 and avgH6 > -10)  then
 		if motor.left.target > 0 and walksies < stopMovementAfter then
 			motor.left.target = speed
 			motor.right.target = speed
@@ -124,27 +160,26 @@ onevent prox
 			walksies = 0
 		end
 	end
-	# if the robot does not currently have an ID, the comm subroutine is called to determine the ID.
-	if id==0 then
-		callsub comm
+	
+	# call the subroutine to establish the IDs
+	callsub establishIDs
+	
+	# if there are no neighbours, set happiness to -1 and reset both prevval and nextval
+	if (avgH2 < 10 and avgH2 > -10)  and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) then
+		happiness = -1
+		nextval = 0
+		prevval = 0
+	# if there is no neighbour in front but one behind, reset nextval to 0
+	elseif  (avgH2 < 10 and avgH2 > -10)  then
+		nextval = 0
+	# if there is no neighbour behind but one in front, reset prevval to 0
+	elseif ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10))  then
+		prevval = 0
 	end
 	
 	# if the robot has an ID, it broadcasts its value and its ID. That way, the receiving robots can check if they should consider the value
 	if id !=0 then
 		emit neighbour_value [id, value]
-	end
-	
-	# if the robot does not have one or both neighbour, the corresponding variable is set to 0 and the recount event is emitted to signal that the IDs need to be reestablished.
-	if prox.horizontal[2] ==0 and (prox.horizontal[5] ==0  or prox.horizontal[6] == 0) then
-		nextval = 0
-		prevval = 0
-		emit recount
-	elseif prox.horizontal[2] == 0 then
-		nextval = 0
-		emit recount
-	elseif  prox.horizontal[5] == 0 or prox.horizontal[6] == 0 then
-		prevval = 0
-		emit recount
 	end
 	
 	# first, the changecheck subroutine is called to establish if there has been any changes to the neighbours. Then, this update influences the happycheck subroutine which determines
@@ -174,45 +209,46 @@ onevent prox
 
 #----------------------------------------------------------------------------END PROX BLOCK-------------------------------------------------------------------------------
 
-#----------------------------------------------------------------------------C O M M U N I C A T I O N----------------------------------------------------------------------
-#----------------------------------------------------------------------------BEGIN PROX.COMM BLOCK--------------------------------------------------------------------	
-# this event handler deals with incoming communication. It is only used to establish the ID and check if the order is preserved. 	
-onevent prox.comm
-	# if the robot does not yet have an ID or has lost it and if the robot receives the ID of another robot, it increments the received value and sets the result as its ID.
-	# then, it starts broadcasting its ID.
-	if id == 0 and prox.comm.rx != 0 then
-		id = prox.comm.rx + 1
-		prox.comm.tx = id
-	end
-	
-	# as the prox.comm communication has a limited range of only 15cm, the only values it should be receiving are one lower or higher than its own ID. If that is not the
-	# case, the robots have been moved and an event is emitted to indicate that the order has changed and that the IDs need to be restablished
-	if prox.comm.rx != id-1 then
-		if  prox.comm.rx != id+1 then
-			emit recount
-		end
-	end
-
-#----------------------------------------------------------------------------END PROX.COMM BLOCK-----------------------------------------------------------------------
-#----------------------------------------------------------------------------BEGIN ID ESTABLISH BLOCK-------------------------------------------------------------------			
-# this subroutine deals with checking if a robot should be first in its line or not. If it does not have a previous neighbour, i.e. a robot behind it, the id is set to 1 and broadcast.
-# in all other cases, the id is set to 0. This is done to ensure every robot that is not at the beginning of a line has its ID reset to 0.
-sub comm
-	if prox.horizontal[2] > 2000 and (prox.horizontal[5] == 0 or prox.horizontal[6] == 0) then
+#-------------------------------------------------------------------B O T T O M   L A Y E R   C O M M U N I C A T I O N-------------------------------------------------
+#------------------------------------------------------------------BEGIN ID ESTABLISHMENT BLOCK----------------------------------------------------------------------
+sub establishIDs
+	# if no neighbour behind but neighbour in front, ID = 1
+	if id == 0 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10) then
 		id = 1
+		# send out the robot's ID
 		prox.comm.tx = id
-	else
+	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
+	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10))) or (id == 1 and ((avgH5 > 10 and avgH5 < -10) or (avgH6 > 10 and avgH6 < -10))) then
 		id = 0
+		emit recountID
 	end
 
-#----------------------------------------------------------------------------END ID ESTABLISH BLOCK---------------------------------------------------------------------
-#----------------------------------------------------------------------------BEGIN RECOUNT BLOCK------------------------------------------------------------------------		
-# this event handler is used to reset the robot into a stage where it does not know its position in the line. This can be used when the robot order is changed.
-# the only thing it does is to call the comm subroutine which handles initial ID assignments.
-onevent recount # takes 0 arguments
-	callsub comm
-	
-#----------------------------------------------------------------------------END RECOUNT BLOCK--------------------------------------------------------------------------
+#------------------------------------------------------------------END ID ESTABLISHMENT BLOCK------------------------------------------------------------------------
+#------------------------------------------------------------------BEGIN PROX.COMM BLOCK-----------------------------------------------------------------------------
+# if the robot receives a message using prox.comm, it assumes an ID or checks if it has been moved.
+onevent prox.comm
+	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
+	if  id == 0 and prox.comm.rx != 0 then
+		id = prox.comm.rx + 1
+		# send out the robot's ID
+		prox.comm.tx = id
+	# if the robot has an ID but receives an unexpected ID, the IDs need to be re-established as it is likely that the order has changed
+	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) then
+		id = 0
+		emit recountID
+	end
+
+#------------------------------------------------------------------END PROX.COMM  BLOCK----------------------------------------.---------------------------------------
+#------------------------------------------------------------------BEGIN RECOUNTID BLOCK-------------------------------------------------------------------------------
+# set ID back to 0 and pass the message on
+onevent recountID
+	if id != 0 then
+		id = 0
+		# send out the robot's ID
+		prox.comm.tx = id
+		emit recountID
+	end
+#------------------------------------------------------------------END RECOUNTID BLOCK---------------------------------------------------------------------------------
 
 #----------------------------------------------------------------------------V A L U E   H A N D L I N G----------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN NEIGHBOUR BLOCK---------------------------------------------------------------------	
@@ -244,11 +280,11 @@ sub happycheck
  		# if the robot is too unhappy, it walks away. the movement does not stop until it is brought to a stop by pressing the backward button
  		elseif happiness > -1 then
  			# if there is nothing in front of it, it walks straight ahead
- 			if prox.horizontal[2] == 0 then
+ 			if (avgH2 < 10 and avgH2 > -10) then
  				motor.left.target = speed
  				motor.right.target = speed
  			# if there is something in front but nothing at the back, it moves straight backwards
- 			elseif prox.horizontal[5] == 0 and prox.horizontal[6] == 0 then
+ 			elseif (avgH5 < 10 and avgH5 > -10) and (avgH6 < 10 and avgH6 > -10) then
  				motor.left.target = -speed
  				motor.right.target = -speed
  			# if it is in the middle of two robots, it turns left
@@ -288,4 +324,34 @@ sub changecheck
 	end
 
 #----------------------------------------------------------------------------END CHANGE CHECK BLOCK------------------------------------------------------------------	
-	
+#----------------------------------------------------------------------------P R O X    H O R I Z O N T A L   A V E R A G E-----------------------------------------------	
+#----------------------------------------------------------------------------BEGIN AVERAGE BLOCK-----------------------------------------------------------------------	
+# computing the averages of all horizontal proximity sensor valules
+sub average
+	avgH0 = 0
+	avgH1 = 0
+	avgH2 = 0
+	avgH3 = 0
+	avgH4 = 0
+	avgH5 = 0
+	avgH6 = 0
+	i = 0
+	while i < 10 do
+		avgH0 += lastHorizontal0readings[i]
+		avgH1 += lastHorizontal1readings[i]
+		avgH2 += lastHorizontal2readings[i]
+		avgH3 += lastHorizontal3readings[i]
+		avgH4 += lastHorizontal4readings[i]
+		avgH5 += lastHorizontal5readings[i]
+		avgH6 += lastHorizontal6readings[i]
+		i++
+	end
+	avgH0 = avgH0/10
+	avgH1 = avgH1/10
+	avgH2 = avgH2/10
+	avgH3 = avgH3/10
+	avgH4 = avgH4/10
+	avgH5 = avgH5/10
+	avgH6 = avgH6/10
+
+#----------------------------------------------------------------------------END AVERAGE BLOCK-----------------------------------------------------------------------	
