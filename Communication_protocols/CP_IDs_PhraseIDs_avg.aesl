@@ -4,12 +4,46 @@ var phraseID = 0	# the ID of the phrase that the robot is a part of
 var class = 8	# the part of speech ID
 var highestPhraseID = 0
 
+# for average of last 10 sensor readings
+var lastHorizontal0readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal1readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal2readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal3readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal4readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal5readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal6readings[] = [0,0,0,0,0,0,0,0,0,0]
+
+var roundPointer = 0
+
+var avgH0 = 0
+var avgH1 = 0
+var avgH2 = 0
+var avgH3 = 0
+var avgH4 = 0
+var avgH5 = 0
+var avgH6 = 0
+
+var i = 0
+
 # communication is enabled
 call prox.comm.enable(1)
 
 onevent prox
+
+# updating the last reading arrays
+	lastHorizontal0readings[roundPointer] = prox.horizontal[0]
+	lastHorizontal1readings[roundPointer] = prox.horizontal[1]
+	lastHorizontal2readings[roundPointer] = prox.horizontal[2]
+	lastHorizontal3readings[roundPointer] = prox.horizontal[3]
+	lastHorizontal4readings[roundPointer] = prox.horizontal[4]
+	lastHorizontal5readings[roundPointer] = prox.horizontal[5]
+	lastHorizontal6readings[roundPointer] = prox.horizontal[6]
+	
+	# computing the average of the last 10 sensor readings for all horizontal distance sensors
+	callsub average
+	
 	# if there are no neighbours, set colour to white
-	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and (prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10) then
+	if (avgH2 < 10 and avgH2 > -10)  and (prox.horizontal[5] < 10 and avgH6 > -10) or (avgH6 < 10 and avgH6 > -10) then
 		call leds.top(32,32,32)
 	end
 	
@@ -31,12 +65,12 @@ onevent prox
 # BOTTOM LAYER COMMUNICATION
 sub establishIDs
 	# if no neighbour behind but neighbour in front, ID = 1
-	if id == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+	if id == 0 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10) then
 		id = 1
 		# send out the robot's ID
 		prox.comm.tx = id
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
-	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10))) or (id == 1 and ((prox.horizontal[5] > 10 and prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 and prox.horizontal[6] < -10))) then
+	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10))) or (id == 1 and ((avgH5 > 10 and avgH5 < -10) or (avgH6 > 10 and avgH6 < -10))) then
 		id = 0
 		phraseID = 0
 		highestPhraseID = 0
@@ -71,7 +105,7 @@ onevent recountID
 
 # TOP LAYER COMMUNICATION
 sub establishPhraseIDs
-	if phraseID == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+	if phraseID == 0 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10) then
 		if class != 1 and class != 10 and class != 12 and class != 14 then
 			phraseID = 1
 			highestPhraseID = 1
@@ -97,3 +131,31 @@ onevent neighbour_value
 			emit neighbour_value [id, highestPhraseID]
 		end	
 	end
+	
+	# computing the averages of all horizontal proximity sensor valules
+sub average
+	avgH0 = 0
+	avgH1 = 0
+	avgH2 = 0
+	avgH3 = 0
+	avgH4 = 0
+	avgH5 = 0
+	avgH6 = 0
+	i = 0
+	while i < 10 do
+		avgH0 += lastHorizontal0readings[i]
+		avgH1 += lastHorizontal1readings[i]
+		avgH2 += lastHorizontal2readings[i]
+		avgH3 += lastHorizontal3readings[i]
+		avgH4 += lastHorizontal4readings[i]
+		avgH5 += lastHorizontal5readings[i]
+		avgH6 += lastHorizontal6readings[i]
+		i++
+	end
+	avgH0 = avgH0/10
+	avgH1 = avgH1/10
+	avgH2 = avgH2/10
+	avgH3 = avgH3/10
+	avgH4 = avgH4/10
+	avgH5 = avgH5/10
+	avgH6 = avgH6/10
