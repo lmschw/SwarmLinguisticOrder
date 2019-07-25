@@ -1,3 +1,6 @@
+# this program allows a minimal display of the likelihood that a robot to be between its neighbours while each robot represents a letter of the English alphabet
+
+# variables
 var value = 71
 var id = 0
 var nextval = 0
@@ -5,8 +8,32 @@ var prevval = 0
 var oldhappiness = 0
 var happiness = -1
 
+# for average of last 10 sensor readings
+var lastHorizontal0readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal1readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal2readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal3readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal4readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal5readings[] = [0,0,0,0,0,0,0,0,0,0]
+var lastHorizontal6readings[] = [0,0,0,0,0,0,0,0,0,0]
+
+#
+var roundPointer = 0
+
+var i = 0
+
+var avgH0 = 0
+var avgH1 = 0
+var avgH2 = 0
+var avgH3 = 0
+var avgH4 = 0
+var avgH5 = 0
+var avgH6 = 0
+
+# for the frequencies
 var prev[27]
 var next[27]
+
 
 # initializing the context frequencies []a. abc + space
 prev[0] = 114
@@ -66,34 +93,43 @@ next[24] = 9
 next[25] = 0
 next[26] = 250
 
+# no lights
 call leds.top(0,0,0)
+
+# enable communication
 call prox.comm.enable(1)
 
-
-onevent buttons
-	if (button.forward == 1) then
-		call leds.top(32,15,32) #purple
-	end
-
 onevent prox
-	if id==0 then
-		callsub comm
-	end
+	# updating the last reading arrays
+	lastHorizontal0readings[roundPointer] = prox.horizontal[0]
+	lastHorizontal1readings[roundPointer] = prox.horizontal[1]
+	lastHorizontal2readings[roundPointer] = prox.horizontal[2]
+	lastHorizontal3readings[roundPointer] = prox.horizontal[3]
+	lastHorizontal4readings[roundPointer] = prox.horizontal[4]
+	lastHorizontal5readings[roundPointer] = prox.horizontal[5]
+	lastHorizontal6readings[roundPointer] = prox.horizontal[6]
+	
+	# computing the average of the last 10 sensor readings for all horizontal distance sensors
+	callsub average
+	
+	# emit the value for the others to check against
 	if id !=0 then
 		emit neighbour_value [id, value]
 	end
 	
-		if prox.horizontal[2] ==0 and (prox.horizontal[5] ==0  or prox.horizontal[6] == 0) then
+	# if there are no neighbours, set happiness to -1
+	if (avgH2 < 10 and avgH2 > -10)  and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) then
+		happiness = -1
 		nextval = 0
 		prevval = 0
-		emit recount
-	elseif prox.horizontal[2] == 0 then
+	elseif  (avgH2 < 10 and avgH2 > -10)  then
 		nextval = 0
-		emit recount
-	elseif  prox.horizontal[5] == 0 or prox.horizontal[6] == 0 then
+	elseif ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10))  then
 		prevval = 0
-		emit recount
 	end
+	
+	# call the subroutine to establish the IDs
+	callsub establishIDs
 	
 	callsub happycheck
 
@@ -101,32 +137,20 @@ onevent prox
 		call leds.top(32,32,32)
 	elseif  happiness > 200 then
 		call leds.top(0,32,0)
-		if oldhappiness <200 then
+		if oldhappiness <= 200 then
 			call sound.system(7)
 		end
 	elseif  happiness > 100 then
 		call leds.top(32,32,0)
-		if oldhappiness <100 or oldhappiness >200 then
+		if oldhappiness > 200 or oldhappiness <= 100 then
 			call sound.system(6)
 		end
 	else
 		call leds.top(32,0,0)
-		if oldhappiness >100 or oldhappiness == 0 or oldhappiness == -1 then
+		if oldhappiness > 100 then
 			call sound.system(4)
 		end
-	end
-	
-	
-onevent prox.comm
-	if id == 0 and prox.comm.rx != 0 then
-		id = prox.comm.rx + 1
-		prox.comm.tx = id
-	end
-	if prox.comm.rx != id-1 then
-		if  prox.comm.rx != id+1 then
-					emit recount
-		end
-	end
+	end	
 
 onevent neighbour_value
 	if id != 0 then
@@ -136,20 +160,6 @@ onevent neighbour_value
 			nextval = event.args[1]
 		end
 	end
-	
-
-sub comm
-	if prox.horizontal[2] > 2000 and (prox.horizontal[5] == 0 or prox.horizontal[6] == 0) then
-		id = 1
-		prox.comm.tx = id
-	else
-		id
-		 = 0
-	end
-onevent recount
-	id = 0
-	callsub comm
-	
 	
 sub happycheck
  # if the robot has two neighbours, it does the sum.
@@ -165,3 +175,66 @@ sub happycheck
  	else
  		happiness = -1
  	end
+
+# BOTTOM LAYER COMMUNICATION
+sub establishIDs
+	# if no neighbour behind but neighbour in front, ID = 1
+	if id == 0 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10) then
+		id = 1
+		# send out the robot's ID
+		prox.comm.tx = id
+	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
+	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10))) or (id == 1 and ((avgH5 > 10 and avgH5 < -10) or (avgH6 > 10 and avgH6 < -10))) then
+		id = 0
+		emit recountID
+	end
+
+
+onevent prox.comm
+	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
+	if  id == 0 and prox.comm.rx != 0 then
+		id = prox.comm.rx + 1
+		# send out the robot's ID
+		prox.comm.tx = id
+	# if the robot has an ID but receives an unexpected ID, the IDs need to be re-established as it is likely that the order has changed
+	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) then
+		id = 0
+		emit recountID
+	end
+	
+# set ID back to 0 and pass the message on
+onevent recountID
+	if id != 0 then
+		id = 0
+		# send out the robot's ID
+		prox.comm.tx = id
+		emit recountID
+	end
+
+# computing the averages of all horizontal proximity sensor valules
+sub average
+	avgH0 = 0
+	avgH1 = 0
+	avgH2 = 0
+	avgH3 = 0
+	avgH4 = 0
+	avgH5 = 0
+	avgH6 = 0
+	i = 0
+	while i < 10 do
+		avgH0 += lastHorizontal0readings[i]
+		avgH1 += lastHorizontal1readings[i]
+		avgH2 += lastHorizontal2readings[i]
+		avgH3 += lastHorizontal3readings[i]
+		avgH4 += lastHorizontal4readings[i]
+		avgH5 += lastHorizontal5readings[i]
+		avgH6 += lastHorizontal6readings[i]
+		i++
+	end
+	avgH0 = avgH0/10
+	avgH1 = avgH1/10
+	avgH2 = avgH2/10
+	avgH3 = avgH3/10
+	avgH4 = avgH4/10
+	avgH5 = avgH5/10
+	avgH6 = avgH6/10

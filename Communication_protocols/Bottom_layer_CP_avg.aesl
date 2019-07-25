@@ -37,7 +37,7 @@ onevent prox
 	# computing the average of the last 10 sensor readings for all horizontal distance sensors
 	callsub average
 	# if there are no neighbours, set colour to white
-	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and (prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10) then
+	if (avgH2 < 10 and avgH2 > -10)  and (avgH5 < 10 and avgH5 > -10) or avgH6 < 10 and avgH6 > -10) then
 		call leds.top(32,32,32)
 	end
 	
