@@ -270,14 +270,14 @@ onevent neighbour_value # takes 2 arguments: ID and value
 sub happycheck
 	# if there has not been any change since the last time this subroutine was called, the happiness is gradually reduced to help the user to possibly determine where
 	# the error might lie
- 	if change == 0 then
- 		if happiness > 20  then
+	if change == 0 then
+ 		if happiness > 0  then
  			if changerateupdate % changerate == 0 then
  				 happiness = happiness-1
  			end
  			changerateupdate--
  		# if the robot is too unhappy, it walks away. the movement does not stop until it is brought to a stop by pressing the backward button
- 		elseif happiness > -1 then
+ 		elseif happiness == 0 then
  			# if there is nothing in front of it, it walks straight ahead
  			if (avgH2 < 10 and avgH2 > -10) then
  				motor.left.target = speed
