@@ -32,7 +32,7 @@ sub establishIDs
 		# send out the robot's ID
 		prox.comm.tx = id
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
-	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10))) then
+	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
 		id = 1
 		maxrecount++
 		emit recountID maxrecount

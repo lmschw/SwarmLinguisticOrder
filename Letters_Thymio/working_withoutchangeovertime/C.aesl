@@ -185,7 +185,7 @@ sub establishIDs
 		# send out the robot's ID
 		prox.comm.tx = id
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
-	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10))) then
+	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10)) then
 		id = 1
 		call sound.system(3)
 		maxrecount++
