@@ -4,14 +4,14 @@
 # ---------------------------------------------------------------------------BEGIN OPTIONS-----------------------------------------------------------------------------------------
 var speed = 200							# how fast the robots move away
 var stopMovementAfter = 20		# how long they keep moving when they walk away
-var changerate = 1 					# the higher the rate, the slower the escape; determines how long the robot waits if it is unhappy; 
+var changerate = 15 					# the higher the rate, the slower the escape; determines how long the robot waits if it is unhappy; 
 													# set changerate = 0 to prevent escape behaviour
 var hints_ENABLED = 1				# provide hints on button press if 1, no hints if 0
 var sound = 1								# 1: sounds are played upon colour change; 0: muted
 var hints_duration = 200			# how long the hints are displayed if they are enabled
 # ---------------------------------------------------------------------------END OPTIONS-----------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
-var value = 79 			# the ASCII code of the letter
+var value = 79			# the ASCII code of the letter
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
 var nextval = 0 			# the value of the next robot. This is the robot in front
 var prevval = 0			# the value of the previous robot. This is the robot behind this robot
@@ -23,6 +23,7 @@ var changeratemax = 10000	# the maximum number used to model the happiness decre
 var changerateupdate = changeratemax	# the variable used to keep track of the happiness decrease rate
 var happiness = -1		# how happy the robot is where it is at the moment. -1 if it does not have neighbours
 var displayColour = 0	# used for the hints. If 0, the colour corresponding to the overall happiness is shown. If 1, the colour associated with the hint is shown
+var maxrecount = 0	# used to check if the robot has already performed a certain recount
 
 # for average of last 10 sensor readings
 var lastHorizontal0readings[] = [0,0,0,0,0,0,0,0,0,0]
@@ -108,6 +109,7 @@ next[23] = 1
 next[24] = 7 
 next[25] = 0
 next[26] = 20
+
 
 # resetting the leds so that no previous colour setting interferes
 call leds.top(0,0,0)
@@ -287,38 +289,50 @@ sub establishIDs
 		# send out the robot's ID
 		prox.comm.tx = id
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
-	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10))) or (id == 1 and ((avgH5 > 10 and avgH5 < -10) or (avgH6 > 10 and avgH6 < -10))) then
-		id = 0
-		emit recountID
+	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10)) then
+		id = 1
+		maxrecount++
+		emit recountID maxrecount
 	end
 
 #------------------------------------------------------------------END ID ESTABLISHMENT BLOCK------------------------------------------------------------------------
 #------------------------------------------------------------------BEGIN PROX.COMM BLOCK-----------------------------------------------------------------------------
 # if the robot receives a message using prox.comm, it assumes an ID or checks if it has been moved.
-onevent prox.comm
 	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
-	if  id == 0 and prox.comm.rx != 0 then
+	if  id == 0 and prox.comm.rx != 0 and ((avgH5 > 10 or avgH5 < -10) or (avgH6 > 10 or avgH6 < -10)) then
 		id = prox.comm.rx + 1
 		# send out the robot's ID
 		prox.comm.tx = id
 	# if the robot has an ID but receives an unexpected ID, the IDs need to be re-established as it is likely that the order has changed
-	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) then
+	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) and prox.comm.rx != 0 then
 		id = 0
-		emit recountID
+		prox.comm.tx = id
+		maxrecount++
+		emit recountID maxrecount
 	end
 
 #------------------------------------------------------------------END PROX.COMM  BLOCK----------------------------------------.---------------------------------------
 #------------------------------------------------------------------BEGIN RECOUNTID BLOCK-------------------------------------------------------------------------------
 # set ID back to 0 and pass the message on
 onevent recountID
-	if id != 0 then
-		id = 0
-		# send out the robot's ID
-		prox.comm.tx = id
-		emit recountID
+	if event.args[0] > maxrecount then
+		maxrecount = event.args[0]
+		if ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10) then
+			if id != 1 then
+				id = 1
+				# send out the robot's ID
+				prox.comm.tx = id
+				emit recountID event.args[0]
+			end
+
+		elseif  id > 1 then
+			id = 0
+			# send out the robot's ID
+			prox.comm.tx = id
+			emit recountID event.args[0]
+		end
 	end
 #------------------------------------------------------------------END RECOUNTID BLOCK---------------------------------------------------------------------------------
-
 
 #----------------------------------------------------------------------------V A L U E   H A N D L I N G----------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN NEIGHBOUR BLOCK---------------------------------------------------------------------	
