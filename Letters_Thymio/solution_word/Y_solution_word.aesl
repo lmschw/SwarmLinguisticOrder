@@ -16,7 +16,7 @@ var lengthSolution = 3					# enter the number of letters in the word
 
 # ---------------------------------------------------------------------------END OPTIONS-----------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
-var value = 89 			# the ASCII code of the letter
+var value = 89			# the ASCII code of the letter
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
 var nextval = 0 			# the value of the next robot. This is the robot in front
 var prevval = 0			# the value of the previous robot. This is the robot behind this robot
@@ -28,10 +28,12 @@ var changeratemax = 10000	# the maximum number used to model the happiness decre
 var changerateupdate = changeratemax	# the variable used to keep track of the happiness decrease rate
 var happiness = -1		# how happy the robot is where it is at the moment. -1 if it does not have neighbours
 var displayColour = 0	# used for the hints. If 0, the colour corresponding to the overall happiness is shown. If 1, the colour associated with the hint is shown
+var maxrecount = 0	# used to check if the robot has already performed a certain recount
 
 # solution option variables
-var solutionPrevs[10]	#stores the previous letters in the solution
-var solutionNexts[10]	# stores the next letters in the solution
+var storagesize = 15
+var solutionPrevs[15]	#stores the previous letters in the solution
+var solutionNexts[15] 	# stores the next letters in the solution
 var numberOfMatches = 0	# stores the number of occurrences of the letter in the solution word
 var i = 0						# auxiliary variables for loops
 var j = 0						# auxiliary variables for loops
@@ -119,6 +121,9 @@ if solutionAvailable == 1 then
 				solutionPrevs[j] = solutionWord[i-1]
 				solutionNexts[j] = 26
 				j++
+				if j >= storagesize then
+					i = lengthSolution
+				end
 			end
 			numberOfMatches++
 		end
@@ -309,35 +314,48 @@ sub establishIDs
 		# send out the robot's ID
 		prox.comm.tx = id
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
-	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10))) or (id == 1 and ((prox.horizontal[5] > 10 and prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 and prox.horizontal[6] < -10))) then
-		id = 0
-		emit recountID
+	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
+		id = 1
+		maxrecount++
+		emit recountID maxrecount
 	end
 
 #------------------------------------------------------------------END ID ESTABLISHMENT BLOCK------------------------------------------------------------------------
 #------------------------------------------------------------------BEGIN PROX.COMM BLOCK-----------------------------------------------------------------------------
 # if the robot receives a message using prox.comm, it assumes an ID or checks if it has been moved.
-onevent prox.comm
 	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
-	if  id == 0 and prox.comm.rx != 0 then
+	if  id == 0 and prox.comm.rx != 0 and ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
 		id = prox.comm.rx + 1
 		# send out the robot's ID
 		prox.comm.tx = id
 	# if the robot has an ID but receives an unexpected ID, the IDs need to be re-established as it is likely that the order has changed
-	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) then
+	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) and prox.comm.rx != 0 then
 		id = 0
-		emit recountID
+		prox.comm.tx = id
+		maxrecount++
+		emit recountID maxrecount
 	end
 
 #------------------------------------------------------------------END PROX.COMM  BLOCK----------------------------------------.---------------------------------------
 #------------------------------------------------------------------BEGIN RECOUNTID BLOCK-------------------------------------------------------------------------------
 # set ID back to 0 and pass the message on
 onevent recountID
-	if id != 0 then
-		id = 0
-		# send out the robot's ID
-		prox.comm.tx = id
-		emit recountID
+	if event.args[0] > maxrecount then
+		maxrecount = event.args[0]
+		if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+			if id != 1 then
+				id = 1
+				# send out the robot's ID
+				prox.comm.tx = id
+				emit recountID event.args[0]
+			end
+
+		elseif  id > 1 then
+			id = 0
+			# send out the robot's ID
+			prox.comm.tx = id
+			emit recountID event.args[0]
+		end
 	end
 #------------------------------------------------------------------END RECOUNTID BLOCK---------------------------------------------------------------------------------
 
