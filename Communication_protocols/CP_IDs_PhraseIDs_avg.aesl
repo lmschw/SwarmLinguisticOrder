@@ -3,6 +3,7 @@ var id = 0	# the robot's ID within the line
 var phraseID = 0	# the ID of the phrase that the robot is a part of
 var class = 8	# the part of speech ID
 var highestPhraseID = 0
+var maxrecount = 0
 
 # for average of last 10 sensor readings
 var lastHorizontal0readings[] = [0,0,0,0,0,0,0,0,0,0]
@@ -44,6 +45,8 @@ onevent prox
 	
 	# if there are no neighbours, set colour to white
 	if (avgH2 < 10 and avgH2 > -10)  and (prox.horizontal[5] < 10 and avgH6 > -10) or (avgH6 < 10 and avgH6 > -10) then
+		id = 0
+		phraseID = 0
 		call leds.top(32,32,32)
 	end
 	
@@ -70,38 +73,48 @@ sub establishIDs
 		# send out the robot's ID
 		prox.comm.tx = id
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
-	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10))) or (id == 1 and ((avgH5 > 10 and avgH5 < -10) or (avgH6 > 10 and avgH6 < -10))) then
-		id = 0
-		phraseID = 0
-		highestPhraseID = 0
-		emit recountID
+	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10)) then
+		id = 1
+		maxrecount++
+		emit recountID maxrecount
 	end
 
 
 onevent prox.comm
 	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
-	if  id == 0 and prox.comm.rx != 0 then
+	if  id == 0 and prox.comm.rx != 0 and ((avgH5 > 10 or avgH5 < -10) or (avgH6 > 10 or avgH6 < -10)) then
 		id = prox.comm.rx + 1
 		# send out the robot's ID
 		prox.comm.tx = id
 	# if the robot has an ID but receives an unexpected ID, the IDs need to be re-established as it is likely that the order has changed
-	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) then
+	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) and prox.comm.rx != 0 then
 		id = 0
-		phraseID = 0
-		highestPhraseID = 0
-		emit recountID
+		prox.comm.tx = id
+		maxrecount++
+		emit recountID maxrecount
+
 	end
 	
 # set ID back to 0 and pass the message on
 onevent recountID
-	if id != 0 then
-		id = 0
-		# send out the robot's ID
-		prox.comm.tx = id
-		phraseID = 0
-		highestPhraseID = 0
-		emit recountID
+	if event.args[0] > maxrecount then
+		maxrecount = event.args[0]
+		if ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10) then
+			if id != 1 then
+				id = 1
+				# send out the robot's ID
+				prox.comm.tx = id
+				emit recountID event.args[0]
+			end
+
+		elseif  id > 1 then
+			id = 0
+			# send out the robot's ID
+			prox.comm.tx = id
+			emit recountID event.args[0]
+		end
 	end
+
 
 # TOP LAYER COMMUNICATION
 sub establishPhraseIDs
