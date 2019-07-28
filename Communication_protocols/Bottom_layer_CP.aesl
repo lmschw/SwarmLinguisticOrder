@@ -58,7 +58,7 @@ onevent prox.comm
 onevent recountID
 	if event.args[0] > maxrecount then
 		maxrecount = event.args[0]
-	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10))then
+	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		if id != 1 then
 					id = 1
 		# send out the robot's ID
