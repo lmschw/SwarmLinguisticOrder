@@ -10,7 +10,7 @@ var stopMovementAfter = 20	# how long they move when they walk away
 var changerate = 1 	# changerate == 2: 12s; 3: 18s; 30: 171s;; max: 125; the higher the rate, the slower the escape; determines how long the robot waits if it is unhappy; set changerate = 0 to prevent escape behaviour
 
 # variables
-var value = 75			# the ASCII code of the letter
+var value = 75 	# the ASCII code of the letter
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
 var nextval = 0 			# the value of the next robot. This is the robot in front
 var prevval = 0			# the value of the previous robot. This is the robot behind this robot
@@ -220,13 +220,14 @@ sub establishIDs
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
 	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10)) then
 		id = 1
-		maxrecount++
-		emit recountID maxrecount
+		emit recountID
 	end
 
 #------------------------------------------------------------------END ID ESTABLISHMENT BLOCK------------------------------------------------------------------------
 #------------------------------------------------------------------BEGIN PROX.COMM BLOCK-----------------------------------------------------------------------------
 # if the robot receives a message using prox.comm, it assumes an ID or checks if it has been moved.
+	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
+onevent prox.comm
 	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
 	if  id == 0 and prox.comm.rx != 0 and ((avgH5 > 10 or avgH5 < -10) or (avgH6 > 10 or avgH6 < -10)) then
 		id = prox.comm.rx + 1
@@ -234,32 +235,28 @@ sub establishIDs
 		prox.comm.tx = id
 	# if the robot has an ID but receives an unexpected ID, the IDs need to be re-established as it is likely that the order has changed
 	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) and prox.comm.rx != 0 then
-		id = 0
+		if id != 1 or ((avgH5 > 10 or avgH5 < -10) or (avgH6 > 10 and avgH6 < -10)) then
+			id = 0
+		end
 		prox.comm.tx = id
-		maxrecount++
-		emit recountID maxrecount
+		emit recountID
 	end
 
 #------------------------------------------------------------------END PROX.COMM  BLOCK----------------------------------------.---------------------------------------
 #------------------------------------------------------------------BEGIN RECOUNTID BLOCK-------------------------------------------------------------------------------
 # set ID back to 0 and pass the message on
 onevent recountID
-	if event.args[0] > maxrecount then
-		maxrecount = event.args[0]
-		if ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10) then
-			if id != 1 then
-				id = 1
-				# send out the robot's ID
-				prox.comm.tx = id
-				emit recountID event.args[0]
-			end
-
-		elseif  id > 1 then
-			id = 0
+	if ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10) then
+		if id != 1 then
+			id = 1
 			# send out the robot's ID
 			prox.comm.tx = id
-			emit recountID event.args[0]
 		end
+
+	elseif  id > 1 then
+		id = 0
+		# send out the robot's ID
+		prox.comm.tx = id
 	end
 #------------------------------------------------------------------END RECOUNTID BLOCK---------------------------------------------------------------------------------
 
