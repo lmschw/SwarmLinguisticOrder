@@ -41,8 +41,7 @@ sub establishIDs
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
 	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
 		id = 1
-		maxrecount++
-		emit recountID maxrecount
+		emit recountID
 	end
 
 
@@ -54,33 +53,27 @@ onevent prox.comm
 		prox.comm.tx = id
 	# if the robot has an ID but receives an unexpected ID, the IDs need to be re-established as it is likely that the order has changed
 	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) and prox.comm.rx != 0 then
-		id = 0
+		if id != 1 or ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 and prox.horizontal[6] < -10)) then
+			id = 0
+		end
 		prox.comm.tx = id
-		maxrecount++
-		emit recountID maxrecount
-
+		emit recountID
 	end
 	
 # set ID back to 0 and pass the message on
 onevent recountID
-	if event.args[0] > maxrecount then
-		maxrecount = event.args[0]
-		if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
-			if id != 1 then
-				id = 1
-				# send out the robot's ID
-				prox.comm.tx = id
-				emit recountID event.args[0]
-			end
-
-		elseif  id > 1 then
-			id = 0
+	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+		if id != 1 then
+			id = 1
 			# send out the robot's ID
 			prox.comm.tx = id
-			emit recountID event.args[0]
 		end
-	end
 
+	elseif  id > 1 then
+		id = 0
+		# send out the robot's ID
+		prox.comm.tx = id
+	end
 
 # TOP LAYER COMMUNICATION
 sub establishPhraseIDs
