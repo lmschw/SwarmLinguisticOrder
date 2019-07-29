@@ -7,7 +7,6 @@ var nextval = 0
 var prevval = 0
 var oldhappiness = 0
 var happiness = -1
-var maxrecount = 0
 
 # for average of last 10 sensor readings
 var lastHorizontal0readings[] = [0,0,0,0,0,0,0,0,0,0]
@@ -93,7 +92,6 @@ next[23] = 21
 next[24] = 4 
 next[25] = 0
 next[26] = 279
-
 
 # no lights
 call leds.top(0,0,0)
@@ -187,10 +185,8 @@ sub establishIDs
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
 	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10)) then
 		id = 1
-		maxrecount++
-		emit recountID maxrecount
+		emit recountID
 	end
-
 
 onevent prox.comm
 	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
@@ -200,31 +196,28 @@ onevent prox.comm
 		prox.comm.tx = id
 	# if the robot has an ID but receives an unexpected ID, the IDs need to be re-established as it is likely that the order has changed
 	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) and prox.comm.rx != 0 then
-		id = 0
+		if id != 1 or ((avgH5 > 10 or avgH5 < -10) or (avgH6 > 10 and avgH6 < -10)) then
+			id = 0
+		end
 		prox.comm.tx = id
-		maxrecount++
-		emit recountID maxrecount
-
+		emit recountID
 	end
 	
 # set ID back to 0 and pass the message on
 onevent recountID
-	if event.args[0] > maxrecount then
-		maxrecount = event.args[0]
-		if ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10) then
-			if id != 1 then
-				id = 1
-				# send out the robot's ID
-				prox.comm.tx = id
-				emit recountID event.args[0]
-			end
-		elseif  id > 1 then
-			id = 0
+	if ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10) then
+		if id != 1 then
+			id = 1
 			# send out the robot's ID
 			prox.comm.tx = id
-			emit recountID event.args[0]
 		end
+
+	elseif  id > 1 then
+		id = 0
+		# send out the robot's ID
+		prox.comm.tx = id
 	end
+
 
 # computing the averages of all horizontal proximity sensor valules
 sub average
