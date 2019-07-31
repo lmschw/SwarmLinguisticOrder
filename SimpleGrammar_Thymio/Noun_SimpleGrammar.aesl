@@ -1,12 +1,12 @@
-# CONJUNCTION
+# NOUN
 
 #----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
 
 #---------------------------------------------------------------------------variables--------------------------------------------------------------------------------------------------
 # word-specific values
-var value[] = [65, 78, 68] 			# the ASCII code every letter of the word as an array - 'and'
-var class = 14								# category - conjunction in this case
+var value[] = [67, 65, 84] 			# the ASCII code every letter of the word as an array - 'cat'
+var class = 1								# category - noun in this case
 var coreclass = 0			# if the class is the core of a phrase
 
 # grammaticality judgements
@@ -27,10 +27,10 @@ var updateSuccessful = 0
 var higherPhrase = 0
 var cu = 0		# keep sending out checkupdate events?
 
+
 # storage variables
 var consPossible[4] = [1,1,0,0]
-var adjpPossible[] = [0,1,1,1]
-var adjpLengths [] = [1,2,3,3]
+
 
 # general variables
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the backhigh
@@ -113,7 +113,7 @@ onevent prox
 	end
 	
 		emit neighbour_value [id, highestphraseID]
-
+		
 	if cu == 1 then
 		if phraseend != -1 then
 			emit checkUpdate [id, phrasecore, maxclass, phraseend]
@@ -130,6 +130,7 @@ onevent prox
 	if phraseComplete == 1 and (prox.horizontal[2] < 10 or prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
 		upscalable = 1
 	end
+
 	# if there are no neighbours, set colour to white
 	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
 		id = 0
@@ -232,12 +233,13 @@ onevent neighbour_value
 	
 #-----------------------------------------------------------------G R A M M A T I C A L I T Y    J U D G E M E N T S----------------------------------------------------------------
 #-----------------------------------------------------------------SEARCH EVENTS------------------------------------------------------------------------------------------------------
-# conjunctions can only be a part of a full construction, a PP or and ADJP
+# nouns can only complete an NP. In all other cases, the adjective notifies the sender that there will not be a completion including the adjective.
 #	emit searchNextCompletion [id{0}, phraseID{1}, phraseend{2}, 	phrasetype{3}]
 onevent searchNextCompletion
-	if  phraseID != event.args[1] and maxclass == class and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  100 or event.args[3] == 103 or event.args[3] == 104)  and event.args[2] == id-1 then
+	if  phraseID != event.args[1] and maxclass == class and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  101)  and event.args[2] == id-1 then
 		phrasecore = event.args[0]
 		updateComplete = 0
+		call sound.system(3)
 		cu = 1
 		if phraseend != -1 then
 			emit checkUpdate [id, phrasecore, maxclass, phraseend]
@@ -292,7 +294,7 @@ onevent constructionComplete
 #	emit successfulUpdateConfirmation [id{0}, event.args[0]{1}, phraseID{2}, phrasetype{3}, phraseComplete{4}, upscalable{5}]
 # if the phrasecore confirms the update, the robot updates its own data
 onevent successfulUpdateConfirmation
-	if event.args[0] == phrasecore and event.args[1] == id and phraseID != event.args[2]  then
+	if event.args[0] == phrasecore and event.args[1] == id  and phraseID != event.args[2] then
 		cu = 0
 		higherPhrase = 1
 		updateComplete = 1

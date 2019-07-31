@@ -1,18 +1,18 @@
-# CONJUNCTION
+# DETERMINER
 
 #----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
 
 #---------------------------------------------------------------------------variables--------------------------------------------------------------------------------------------------
 # word-specific values
-var value[] = [65, 78, 68] 			# the ASCII code every letter of the word as an array - 'and'
-var class = 14								# category - conjunction in this case
-var coreclass = 0			# if the class is the core of a phrase
+var value[] = [84, 72, 69] 			# the ASCII code every letter of the word as an array - 'the'
+var class = 8								# category - adjective  in this case
+var coreclass = 1			# if the class is the core of a phrase
 
 # grammaticality judgements
-var maxclass = class 	# maximal phrase category achieved, e.g. NP, VP, construction etc.
+var maxclass = class	# maximal phrase category achieved, e.g. NP, VP, construction etc.
 var phraseID = 0			# id of the phrase containing the word
-var phrasetype = 0		# type of the phrase corresponding to the phraseID
+var phrasetype = 101		# type of the phrase corresponding to the phraseID
 var oldphraseID = 0	# if superceding phrase, used to notify all other members of the same phrase
 var phraseComplete = 0	# if the phrase is complete
 var constructionComplete = 0	# if the whole construction is complete
@@ -22,15 +22,15 @@ var phrasestart = -1
 var phraseend = -1
 var phrasecore = -1
 var updateComplete = 1
-var upscalable = 1		# is another increment possible?
+var upscalable = 0		# is another increment possible?
 var updateSuccessful = 0
-var higherPhrase = 0
+var higherPhrase = 0	# does the robot belong to another phrase
 var cu = 0		# keep sending out checkupdate events?
 
 # storage variables
 var consPossible[4] = [1,1,0,0]
-var adjpPossible[] = [0,1,1,1]
-var adjpLengths [] = [1,2,3,3]
+var npPossible[] = [1,1,0]
+var npLengths [] = [2,3,1]
 
 # general variables
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the backhigh
@@ -42,6 +42,10 @@ var oldid = 0				# to check if there has been a change in the order
 var bool = 0
 var i = 0
 var j = 0
+
+# completion check variables
+var np0comp[] = [class,0]
+var np1comp[] = [class,0,0]
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------constructions-------------------------------------------------------------------------------------------------
@@ -112,8 +116,15 @@ onevent prox
 		callsub establishphraseIDs
 	end
 	
-		emit neighbour_value [id, highestphraseID]
+	emit neighbour_value [id, highestphraseID]
 
+	
+	#TODO what I need
+	if id != 0 and phraseID != 0 and (maxclass == class) and upscalable == 0 then
+			emit searchNextCompletion [id, phraseID, phraseend, 	phrasetype]
+	end
+	#TODO end
+	
 	if cu == 1 then
 		if phraseend != -1 then
 			emit checkUpdate [id, phrasecore, maxclass, phraseend]
@@ -122,19 +133,20 @@ onevent prox
 		end
 	end
 	
-		
 	if updateSuccessful == 1 then
 		emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
 	end
 	
 	if phraseComplete == 1 and (prox.horizontal[2] < 10 or prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
 		upscalable = 1
+	else
+		upscalable = 0
 	end
 	# if there are no neighbours, set colour to white
 	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
 		id = 0
 		phraseID = 0
-		upscalable = 1
+		upscalable = 0
 		callsub reset
 		call leds.top(32,32,32)
 	elseif constructionComplete == 1 then
@@ -181,7 +193,7 @@ onevent prox.comm
 	
 # set ID back to 0 and pass the message on
 onevent recountID
-
+	callsub reset
 	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		if id != 1 then
 			id = 1
@@ -232,13 +244,13 @@ onevent neighbour_value
 	
 #-----------------------------------------------------------------G R A M M A T I C A L I T Y    J U D G E M E N T S----------------------------------------------------------------
 #-----------------------------------------------------------------SEARCH EVENTS------------------------------------------------------------------------------------------------------
-# conjunctions can only be a part of a full construction, a PP or and ADJP
+# adjectives on their own can only be part of an ADJP and they will be the core of that phrase. If they already form an ADJP, they can only become part of another ADJP, a NP or a VP. In all other cases, the adjective notifies the sender that there will not be a completion including the adjective.
 #	emit searchNextCompletion [id{0}, phraseID{1}, phraseend{2}, 	phrasetype{3}]
 onevent searchNextCompletion
-	if  phraseID != event.args[1] and maxclass == class and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  100 or event.args[3] == 103 or event.args[3] == 104)  and event.args[2] == id-1 then
+	if  phraseID != event.args[1] and maxclass == 104 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  101 or event.args[3] == 102 or event.args[3] == 104)  and event.args[2] == id-1 then
+		cu = 1
 		phrasecore = event.args[0]
 		updateComplete = 0
-		cu = 1
 		if phraseend != -1 then
 			emit checkUpdate [id, phrasecore, maxclass, phraseend]
 		else
@@ -249,7 +261,63 @@ onevent searchNextCompletion
 	end
 
 #----------------------------------------------------------------UPDATES----------------------------------------------------------------------------------------------------------------
-# since it's not a core class, no messages are sent back and checkUpdate does not need to be handled
+# if a robot sends back a message, the robot checks if the new value should be included in the phrase
+## NPs: 101
+#var np0[] = [8,1]		# DET + N
+#var np1[] = [8,104,1]	# DEP+ ADJP + N
+#var np2[] = [9]	# PRO
+
+#var npPossible[] = [1,1,0]
+
+#var np0comp[] = [class,0]
+#var np1comp[] = [class,0,0]
+
+#	emit checkUpdate [id{0}, phrasecore{1}, maxclass{2}, phraseend{3}]
+onevent checkUpdate
+	if event.args[0] == phraseend + 1 then
+		updateSuccessful = 0
+		if event.args[2] == 104 and npPossible[1] == 1 then
+			np1comp[1] = 104
+			npPossible[0] = 0
+			phraseComplete = 0
+			upscalable = 0
+			updateSuccessful = 1
+		elseif event.args[2] == 1 then
+			if npPossible[0] == 1 and np0comp[1] == 0 then
+				np0comp[1] = 1
+				npPossible = [0,0,0]
+				phraseComplete = 1
+				upscalable = 1
+				maxclass = 101
+				updateSuccessful = 1		
+			elseif npPossible[1] ==1 and np1comp[1] == 104 and np1comp[2] == 0 then
+				npPossible[0] = 0
+				npPossible[1] = 0
+				npPossible[2] = 0
+				np1comp[2] = 1
+				phraseComplete = 1
+				maxclass = 101
+				updateSuccessful = 1
+				upscalable = 1
+			end
+		end
+		if updateSuccessful == 1 then
+			higherPhrase = 1
+			phraseend = event.args[3]
+			emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
+			if phraseComplete == 1 then
+				emit phraseComplete [phraseID, upscalable]
+			end
+		else
+			if phraseComplete == 1 then
+				upscalable = 1
+				maxclass = phrasetype
+			else
+				upscalable = 0
+			end
+			emit updateDeclination [id, event.args[0]]
+		end
+	end
 
 # if the robot's phrase is absorbed, the supercede event informs it of the update
 # emit supercede [id{0}, oldphraseID{1}, phraseID{2}, phrasetype{3}, phraseComplete{4}, upscalable{5}]
@@ -270,7 +338,7 @@ onevent supercede
 			upscalable = 0
 		end
 	end
-
+	
 # emit phraseComplete [phraseID, upscalable]
 onevent phraseComplete
 	if event.args[0] == phraseID then
@@ -284,15 +352,23 @@ onevent constructionComplete
 		constructionComplete = 1
 		upscalable = 1
 	end
-	
-# block is also only relevant for core classes
-#	emit block [id, phrasecore, maxclass]	
 
+#	emit block [id, phrasecore, maxclass]	
+onevent block
+	if event.args[1] == id and event.args[0] == phraseend + 1 then
+		if phraseComplete == 1 then
+			upscalable = 1
+			maxclass = phrasetype
+		else
+			upscalable = 0
+		end
+	end
+	
 #-------------------------------------------------------------RESPONSES------------------------------------------------------------------------------------------------------------------
 #	emit successfulUpdateConfirmation [id{0}, event.args[0]{1}, phraseID{2}, phrasetype{3}, phraseComplete{4}, upscalable{5}]
 # if the phrasecore confirms the update, the robot updates its own data
 onevent successfulUpdateConfirmation
-	if event.args[0] == phrasecore and event.args[1] == id and phraseID != event.args[2]  then
+	if event.args[0] == phrasecore and event.args[1] == id and phraseID != event.args[2] then
 		cu = 0
 		higherPhrase = 1
 		updateComplete = 1
@@ -310,6 +386,7 @@ onevent successfulUpdateConfirmation
 		else
 			upscalable = 0
 		end
+		emit supercede [id, oldphraseID, phraseID, phrasetype, phraseComplete, upscalable]
 	end
 
 #if the phrasecore declines the update, the robot switches back into considering other search events
@@ -327,11 +404,15 @@ sub reset
 	phraseComplete = 0
 	updateSuccessful = 0
 	cu = 0
+	np0comp = [class,0]
+	np1comp = [class,0,0]
 	consPossible = [1,1,0,0]
+	npPossible = [1,1,0]
 	maxclass = class
 	highestphraseID = 0
-	phrasetype = 0		# type of the phrase corresponding to the phraseID	
+	phrasetype = 101		# type of the phrase corresponding to the phraseID	
 	oldphraseID = 0
+	upscalable = 0
 	if phraseID > 0 then
 		phrasestart = id
 		phraseend = id
