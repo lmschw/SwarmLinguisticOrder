@@ -17,7 +17,7 @@ var oldphraseID = 0	# if superceding phrase, used to notify all other members of
 var phraseComplete = 0	# if the phrase is complete
 var constructionComplete = 0	# if the whole construction is complete
 #var phraseIDsInPhrase[4]	# where the IDs of all absorbed phrases are stored
-var highestphraseID = 0	# highest phraseID below the current robot
+var highestpid = 0	# highest phraseID below the current robot
 var phrasestart = -1
 var phraseend = -1
 var phrasecore = -1
@@ -35,6 +35,8 @@ var npLengths [] = [2,3,1]
 # general variables
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the backhigh
 var oldid = 0				# to check if there has been a change in the order
+var pid = 0					# underlying phrase id
+var oldpid = 0				# to check if there has been a change in the pid
 
 # aux variables
 #var prevback = 0
@@ -105,20 +107,29 @@ timer.period[0] = 2000
 onevent prox	
 	
 	oldid = id
+	oldpid = pid
 	
 	# call the subroutine to establish the IDs
 	callsub establishIDs
+	callsub establishPhraseIDs
 	
-	if oldid != id then
+	if oldid != id and oldpid != pid then
 		callsub reset
-		callsub establishphraseIDs
-	elseif higherPhrase == 0 then
-		callsub establishphraseIDs
 	end
 	
-	emit neighbour_value [id, highestphraseID]
-
+	emit neighbour_value [id, highestpid]
 	
+	if phraseID == 0 then
+		phraseID = pid
+		if coreclass == 1 then
+			phrasestart = id
+			phraseend = id
+		else
+			phrasestart = -1
+			phraseend = -1
+		end
+	end
+		
 	#TODO what I need
 	if id != 0 and phraseID != 0 and (maxclass == class) and upscalable == 0 then
 			emit searchNextCompletion [id, phraseID, phraseend, 	phrasetype]
@@ -137,11 +148,19 @@ onevent prox
 		emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
 	end
 	
+	if constructionComplete == 1 then
+		emit constructionComplete [phraseID]
+	elseif phraseComplete == 1 then
+		emit phraseComplete [phraseID, upscalable]
+	end
+	
+	
 	if phraseComplete == 1 and (prox.horizontal[2] < 10 or prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
 		upscalable = 1
 	else
 		upscalable = 0
 	end
+	
 	# if there are no neighbours, set colour to white
 	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
 		id = 0
@@ -210,35 +229,31 @@ onevent recountID
 
 #-------------------------------------------------------------------------TOP LAYER COMMUNICATION--------------------------------------------------------------------------------
 # TOP LAYER COMMUNICATION
-sub establishphraseIDs
-	if phraseID == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+sub establishPhraseIDs
+	if pid == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		if class != 1 and class != 10 and class != 12 and class != 14 then
-			phraseID = 1
-			phrasestart = id
-			phraseend = id
-			highestphraseID = 1
-			emit neighbour_value [id, phraseID]
+			pid = 1
+			highestpid = 1
+			emit neighbour_value [id, pid]
 		else
-			phraseID = -2
+			pid = -2
 			emit neighbour_value [id, 0]			
 		end
 	else
-		emit neighbour_value [id, highestphraseID]
+		emit neighbour_value [id, highestpid]
 	end
 
-# neighbour_value [id{0}, maxphraseID{1}]
+# neighbour_value [id{0}, maxphraseid{1}]
 onevent neighbour_value
-	if id == event.args[0]+1 and higherPhrase == 0 then
+	if id == event.args[0]+1 then
 		if class != 1 and class != 10 and class != 12 and class != 14 then
-			phraseID = event.args[1] + 1
-			phrasestart = id
-			phraseend = id
-			highestphraseID = phraseID
-			emit neighbour_value [id, phraseID]
+			pid = event.args[1] + 1
+			highestpid = pid
+			emit neighbour_value [id, pid]
 		else
-			phraseID = -2
-			highestphraseID = event.args[1]
-			emit neighbour_value [id, highestphraseID]
+			pid = -2
+			highestpid = event.args[1]
+			emit neighbour_value [id, highestpid]
 		end	
 	end
 	
@@ -409,9 +424,13 @@ sub reset
 	consPossible = [1,1,0,0]
 	npPossible = [1,1,0]
 	maxclass = class
-	highestphraseID = 0
+	highestpid = 0
 	phrasetype = 101		# type of the phrase corresponding to the phraseID	
 	oldphraseID = 0
+	phraseID = 0
+	pid = 0
+	oldpid = 0
+	oldid = 0
 	upscalable = 0
 	if phraseID > 0 then
 		phrasestart = id
