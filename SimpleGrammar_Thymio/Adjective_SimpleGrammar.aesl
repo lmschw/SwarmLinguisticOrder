@@ -13,11 +13,11 @@ var coreclass = 1			# if the class is the core of a phrase
 var maxclass = 104	# maximal phrase category achieved, e.g. NP, VP, construction etc.
 var phraseID = 0			# id of the phrase containing the word
 var phrasetype = 104		# type of the phrase corresponding to the phraseID
-var oldPhraseID = 0	# if superceding phrase, used to notify all other members of the same phrase
-var phraseComplete = 0	# if the phrase is complete
+var oldphraseID = 0	# if superceding phrase, used to notify all other members of the same phrase
+var phraseComplete = 1	# if the phrase is complete
 var constructionComplete = 0	# if the whole construction is complete
 #var phraseIDsInPhrase[4]	# where the IDs of all absorbed phrases are stored
-var highestPhraseID = 0	# highest phraseID below the current robot
+var highestphraseID = 0	# highest phraseID below the current robot
 var phrasestart = -1
 var phraseend = -1
 var phrasecore = -1
@@ -32,7 +32,7 @@ var adjpLengths [] = [1,2,3,3]
 
 # general variables
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the backhigh
-var maxrecount = 0	# used for the communication protocol to monitor if the robot has already 
+var oldid = 0				# to check if there has been a change in the order
 
 # aux variables
 #var prevback = 0
@@ -102,18 +102,17 @@ timer.period[0] = 2000
 #----------------------------------------------------------------------------END INITIALISATION----------------------------------------------------------------------------------
 
 onevent prox	
-	# if there are no neighbours, set colour to white
-	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and (prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10) then
-		id = 0
-		phraseID = 0
-		call leds.top(32,32,32)
-	end
+	
+	oldid = id
 	
 	# call the subroutine to establish the IDs
 	callsub establishIDs
-
-	# call the subroutine to establish the IDs
-	callsub establishPhraseIDs
+	
+	if oldid != id then
+		callsub reset
+		# call the subroutine to establish the IDs
+		callsub establishphraseIDs
+	end
 	
 	#TODO what I need
 	if id != 0 and phraseID != 0 and (maxclass == 104 or maxclass == 7) and upscalable == 0 then
@@ -121,14 +120,26 @@ onevent prox
 	end
 	#TODO end
 	
-	# colour scheme for testing purposes and 3 robots only
-	if id == 1 then
-		call leds.top(32,0,0)
-	elseif id == 2 then
-		call leds.top(0,32,0)
-	elseif id == 3 then
-		call leds.top(0,0,32)
+	if phraseComplete == 1 and (prox.horizontal[2] < 10 or prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
+		upscalable = 1
 	end
+	# if there are no neighbours, set colour to white
+	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
+		id = 0
+		phraseID = 0
+		upscalable = 0
+		#TODO IMPLEMENT RESET
+		call leds.top(32,32,32)
+	elseif constructionComplete == 1 then
+		call leds.top(0,32,0)
+	elseif phraseComplete == 1 then
+		call leds.top(32,32,0)
+	elseif id != 0 then
+		call leds.top(32,0,0)
+	else
+		call leds.top(32,32,32)
+	end
+
 
 #-----------------------------------------------------------------------C O M M U N I C A T I O N----------------------------------------------------------------------------------
 #-----------------------------------------------------------------------BOTTOM LAYER COMMUNICATION------------------------------------------------------------------------
@@ -142,8 +153,7 @@ sub establishIDs
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
 	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
 		id = 1
-		maxrecount++
-		emit recountID maxrecount
+		emit recountID
 	end
 
 
@@ -155,47 +165,45 @@ onevent prox.comm
 		prox.comm.tx = id
 	# if the robot has an ID but receives an unexpected ID, the IDs need to be re-established as it is likely that the order has changed
 	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) and prox.comm.rx != 0 then
-		id = 0
+		if id != 1 or ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 and prox.horizontal[6] < -10)) then
+			id = 0
+		end
 		prox.comm.tx = id
-		maxrecount++
-		emit recountID maxrecount
-
+		emit recountID
 	end
 	
 # set ID back to 0 and pass the message on
 onevent recountID
-	if event.args[0] > maxrecount then
-		maxrecount = event.args[0]
-		if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
-			if id != 1 then
-				id = 1
-				# send out the robot's ID
-				prox.comm.tx = id
-				emit recountID event.args[0]
-			end
-
-		elseif  id > 1 then
-			id = 0
+	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+		if id != 1 then
+			id = 1
 			# send out the robot's ID
 			prox.comm.tx = id
-			emit recountID event.args[0]
 		end
+
+	elseif  id > 1 then
+		id = 0
+		# send out the robot's ID
+		prox.comm.tx = id
 	end
+
 
 #-------------------------------------------------------------------------TOP LAYER COMMUNICATION--------------------------------------------------------------------------------
 # TOP LAYER COMMUNICATION
-sub establishPhraseIDs
+sub establishphraseIDs
 	if phraseID == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		if class != 1 and class != 10 and class != 12 and class != 14 then
 			phraseID = 1
-			highestPhraseID = 1
+			phrasestart = id
+			phraseend = id
+			highestphraseID = 1
 			emit neighbour_value [id, phraseID]
 		else
 			phraseID = -2
 			emit neighbour_value [id, 0]			
 		end
 	else
-		emit neighbour_value [id, highestPhraseID]
+		emit neighbour_value [id, highestphraseID]
 	end
 
 # neighbour_value [id{0}, maxphraseID{1}]
@@ -203,12 +211,14 @@ onevent neighbour_value
 	if id == event.args[0]+1 then
 		if class != 1 and class != 10 and class != 12 and class != 14 then
 			phraseID = event.args[1] + 1
-			highestPhraseID = phraseID
+			phrasestart = id
+			phraseend = id
+			highestphraseID = phraseID
 			emit neighbour_value [id, phraseID]
 		else
 			phraseID = -2
-			highestPhraseID = event.args[1]
-			emit neighbour_value [id, highestPhraseID]
+			highestphraseID = event.args[1]
+			emit neighbour_value [id, highestphraseID]
 		end	
 	end
 	
@@ -217,13 +227,15 @@ onevent neighbour_value
 # adjectives on their own can only be part of an ADJP and they will be the core of that phrase. If they already form an ADJP, they can only become part of another ADJP, a NP or a VP. In all other cases, the adjective notifies the sender that there will not be a completion including the adjective.
 #	emit searchNextCompletion [id{0}, phraseID{1}, phraseend{2}, 	phrasetype{3}]
 onevent searchNextCompletion
-	if event.args[1] == phraseID then
-		emit searchNextCompletion event.args[0:3]
-	elseif  maxclass == 104 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  101 or event.args[3] == 102 or event.args[3] == 104)  and event.args[2] == id-1 then
+	if  phraseID != event.args[1] and maxclass == 104 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  101 or event.args[3] == 102 or event.args[3] == 104)  and event.args[2] == id-1 then
 		phrasecore = event.args[0]
 		updateComplete = 0
-		emit checkUpdate [id, phrasecore, maxclass, phraseend]
-	elseif (event.args[3] !=  101 and event.args[3] != 102 and event.args[3] != 104 )then
+		if phraseend != -1 then
+			emit checkUpdate [id, phrasecore, maxclass, phraseend]
+		else
+			emit checkUpdate [id, phrasecore, maxclass, id]
+		end
+	elseif phraseID != event.args[1] and event.args[2] == id-1 and  (event.args[3] !=  101 and event.args[3] != 102 and event.args[3] != 104 )then
 		emit block [id, phrasecore, maxclass]
 	end
 
@@ -242,9 +254,7 @@ onevent searchNextCompletion
 #var adjp3comp[] = [maxclass,0,0]
 #	emit checkUpdate [id{0}, phrasecore{1}, maxclass{2}, phraseend{3}]
 onevent checkUpdate
-	if event.args[1] != id then
-		emit checkUpdate event.args[0:3]
-	elseif event.args[0] == phraseend + 1 or event.args[0] == phrasestart -1 then
+	if event.args[0] == phraseend + 1 then
 		updateSuccessful = 0
 		if event.args[2] == 14 and adjp2comp[1] == 0 and adjp3comp[1] == 0 then
 			adjp2comp[1] = 14
@@ -277,15 +287,21 @@ onevent checkUpdate
 			phraseend = event.args[3]
 			emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
 		else
+			if phraseComplete == 1 then
+				upscalable = 1
+				maxclass = phrasetype
+			else
+				upscalable = 0
+			end
 			emit updateDeclination [id, event.args[0]]
 		end
 	end
 
 # if the robot's phrase is absorbed, the supercede event informs it of the update
-# emit supercede [id{0}, oldPhraseID{1}, phraseID{2}, phrasetype{3}, phraseComplete{4}, upscalable{5}]
+# emit supercede [id{0}, oldphraseID{1}, phraseID{2}, phrasetype{3}, phraseComplete{4}, upscalable{5}]
 onevent supercede
 	if event.args[1] == phraseID then
-		oldPhraseID = phraseID
+		oldphraseID = phraseID
 		phraseID = event.args[2]
 		phrasetype = event.args[3]
 		if event.args[4] == 1 then
@@ -296,6 +312,17 @@ onevent supercede
 		end
 		if event.args[5] == 1 then
 			upscalable = 1
+		else
+			upscalable = 0
+		end
+	end
+
+#	emit block [id, phrasecore, maxclass]	
+onevent block
+	if event.args[1] == id and event.args[0] == phraseend + 1 then
+		if phraseComplete == 1 then
+			upscalable = 1
+			maxclass = phrasetype
 		else
 			upscalable = 0
 		end
@@ -307,7 +334,7 @@ onevent supercede
 onevent successfulUpdateConfirmation
 	if event.args[0] == phrasecore and event.args[1] == id then
 		updateComplete = 1
-		oldPhraseID = phraseID
+		oldphraseID = phraseID
 		phraseID = event.args[2]
 		phrasetype = event.args[3]
 		if event.args[4] == 1 then
@@ -321,9 +348,7 @@ onevent successfulUpdateConfirmation
 		else
 			upscalable = 0
 		end
-		emit supercede [id, oldPhraseID, phraseID, phrasetype, phraseComplete, upscalable]
-	else
-		emit successfulUpdateConfirmation event.args[0:5]
+		emit supercede [id, oldphraseID, phraseID, phrasetype, phraseComplete, upscalable]
 	end
 
 #if the phrasecore declines the update, the robot switches back into considering other search events
@@ -332,6 +357,24 @@ onevent updateDeclination
 	if event.args[0] == phrasecore and event.args[1] == id then
 		phrasecore = 0
 		updateComplete = 1
-	elseif (event.args[0] < id and event.args[1] > id) or (event.args[0] > id and event.args[1] < id) then
-		emit updateDeclination event.args[0:1]
+	end
+	
+#----------------------------------------------------------------R E S E T T I N G-----------------------------------------------------------------------------------------------------
+sub reset
+	constructionComplete = 0
+	phraseComplete = 0
+	adjp1comp = [class,0]
+	adjp2comp = [class,0,0]
+	adjp3comp = [0,0,0]
+	consPossible = [1,1,0,0]
+	adjpPossible = [0,1,1,1]
+	maxclass = 104
+	phrasetype = 104		# type of the phrase corresponding to the phraseID	
+	oldphraseID = 0
+	if phraseID > 0 then
+		phrasestart = id
+		phraseend = id
+	else
+		phrasestart = -1
+		phraseend = -1
 	end
