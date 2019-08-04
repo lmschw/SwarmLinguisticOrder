@@ -215,7 +215,7 @@ onevent prox.comm
 	
 # set ID back to 0 and pass the message on
 onevent recountID
-
+	pid = 0
 	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		if id != 1 then
 			id = 1
@@ -281,7 +281,11 @@ onevent searchNextCompletion
 		bl = 1
 		emit block [id, phrasecore, maxclass]
 	end
-
+	
+onevent searchPrevCompletion
+	if  phraseID != event.args[1] and maxclass > 99 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  102)  and event.args[2] == id+1 then
+		emit searchPrevCompletion [event.args[0], event.args[1], id, event.args[3]]
+	end
 #----------------------------------------------------------------UPDATES----------------------------------------------------------------------------------------------------------------
 # since it's not a core class, no messages are sent back and checkUpdate does not need to be handled
 
