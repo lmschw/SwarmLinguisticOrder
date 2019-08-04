@@ -27,6 +27,7 @@ var upscalable = 1		# is another increment possible?
 var updateSuccessful = 0
 var higherPhrase = 0
 var cu = 0		# keep sending out checkupdate events?
+var bl = 0			# keep sending out the block event?
 var lastPhraseAddition = 0	# ID of the core of the last phrase added
 
 # storage variables
@@ -141,6 +142,10 @@ onevent prox
 		end
 	end
 	
+		if bl == 1 then
+		emit block [id, phrasecore, maxclass]
+	end
+	
 	
 	if phraseID <= 0 then
 		phraseComplete = 0
@@ -153,7 +158,7 @@ onevent prox
 	end
 	
 	
-	if phraseComplete == 1 and (prox.horizontal[2] < 10 or prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
+	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
 		upscalable = 1
 	end
 	# if there are no neighbours, set colour to white
@@ -261,12 +266,15 @@ onevent searchNextCompletion
 		phrasecore = event.args[0]
 		updateComplete = 0
 		cu = 1
+		bl = 0
 		if phraseend != -1  and phraseend != 0 then
 			emit checkUpdate [id, phrasecore, maxclass, phraseend]
 		else
 			emit checkUpdate [id, phrasecore, maxclass, id]
 		end
 	elseif phraseID != event.args[1] and event.args[2] == id-1 and  (event.args[3] !=  101 and event.args[3] != 102 and event.args[3] != 104 )then
+		phrasecore = event.args[0]
+		bl = 1
 		emit block [id, phrasecore, maxclass]
 	end
 
@@ -317,6 +325,7 @@ onevent constructionComplete
 onevent successfulUpdateConfirmation
 	if event.args[0] == phrasecore and event.args[1] == id and phraseID != event.args[2]  then
 		cu = 0
+		bl = 0
 		higherPhrase = 1
 		updateComplete = 1
 		oldphraseID = phraseID
@@ -365,3 +374,4 @@ sub reset
 	phrasecore = 0
 	higherPhrase = 0
 	updateComplete = 1
+	bl = 0

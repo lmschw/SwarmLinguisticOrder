@@ -27,6 +27,7 @@ var upscalable = 1		# is another increment possible?
 var updateSuccessful = 0
 var higherPhrase = 0
 var cu = 0		# keep sending out checkupdate events?
+var bl = 0			# keep sending out the block event?
 
 
 # storage variables
@@ -145,6 +146,10 @@ onevent prox
 		emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
 	end
 	
+	if bl == 1 then
+		emit block [id, phrasecore, maxclass]
+	end
+	
 	if phraseID <= 0 then
 		phraseComplete = 0
 	end
@@ -155,7 +160,7 @@ onevent prox
 		emit phraseComplete [phraseID, upscalable]
 	end
 	
-	if phraseComplete == 1 and (prox.horizontal[2] < 10 or prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
+	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
 		upscalable = 1
 	end
 
@@ -265,12 +270,15 @@ onevent searchNextCompletion
 		updateComplete = 0
 		call sound.system(3)
 		cu = 1
+		bl = 0
 		if phraseend != -1 then
 			emit checkUpdate [id, phrasecore, maxclass, phraseend]
 		else
 			emit checkUpdate [id, phrasecore, maxclass, id]
 		end
-	elseif phraseID != event.args[1] and event.args[2] == id-1 and  (event.args[3] !=  101 and event.args[3] != 102 and event.args[3] != 104 )then
+	elseif phraseID != event.args[1] and event.args[2] == id-1 and  (event.args[3] !=  101 )then
+		phrasecore = event.args[0]
+		bl = 1
 		emit block [id, phrasecore, maxclass]
 	end
 
@@ -318,8 +326,9 @@ onevent constructionComplete
 #	emit successfulUpdateConfirmation [id{0}, event.args[0]{1}, phraseID{2}, phrasetype{3}, phraseComplete{4}, upscalable{5}]
 # if the phrasecore confirms the update, the robot updates its own data
 onevent successfulUpdateConfirmation
-	if event.args[0] == phrasecore and event.args[1] == id  and phraseID != event.args[2] then
+	if event.args[1] == id  and phraseID != event.args[2] then
 		cu = 0
+		bl = 0
 		higherPhrase = 1
 		updateComplete = 1
 		oldphraseID = phraseID
@@ -343,6 +352,7 @@ onevent successfulUpdateConfirmation
 onevent updateDeclination
 	if event.args[0] == phrasecore and event.args[1] == id then
 		cu = 0
+		bl = 0
 		phrasecore = 0
 		updateComplete = 1
 	end
@@ -368,3 +378,4 @@ sub reset
 	phrasecore = 0
 	higherPhrase = 0
 	updateComplete = 1
+	bl = 0

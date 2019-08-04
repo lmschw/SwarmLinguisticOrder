@@ -27,6 +27,7 @@ var upscalable = 0		# is another increment possible?
 var updateSuccessful = 0
 var higherPhrase = 0	# does the robot belong to another phrase
 var cu = 0		# keep sending out checkupdate events?
+var bl = 0			# keep sending out the block event?
 var lastPhraseAddition = 0	# ID of the core of the last phrase added
 
 # storage variables
@@ -153,9 +154,10 @@ onevent prox
 		emit successfulUpdateConfirmation [id, lastPhraseAddition, phraseID, phrasetype, phraseComplete, upscalable]
 	end
 	
-	if phraseID <= 0 then
-		phraseComplete = 0
+		if bl == 1 then
+		emit block [id, phrasecore, maxclass]
 	end
+	
 	
 	if constructionComplete == 1 then
 		emit constructionComplete [phraseID]
@@ -273,12 +275,15 @@ onevent searchNextCompletion
 		phrasecore = event.args[0]
 		updateComplete = 0
 		cu = 1
+		bl = 0
 		if phraseend != -1  and phraseend != 0 then
 			emit checkUpdate [id, phrasecore, maxclass, phraseend]
 		else
 			emit checkUpdate [id, phrasecore, maxclass, id]
 		end
 	elseif phraseID != event.args[1] and event.args[2] == id-1 and  (event.args[3] !=  101 and event.args[3] != 102 and event.args[3] != 104 )then
+		phrasecore = event.args[0]
+		bl = 1
 		emit block [id, phrasecore, maxclass]
 	end
 
@@ -396,6 +401,7 @@ onevent block
 onevent successfulUpdateConfirmation
 	if event.args[0] == phrasecore and event.args[1] == id  and phraseID != event.args[2] then
 		cu = 0
+		bl = 0
 		higherPhrase = 1
 		updateComplete = 1
 		oldphraseID = phraseID
@@ -449,3 +455,4 @@ sub reset
 	phrasecore = 0
 	higherPhrase = 0
 	updateComplete = 1
+	bl = 0
