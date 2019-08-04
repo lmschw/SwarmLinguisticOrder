@@ -1,3 +1,4 @@
+# MAN
 # NOUN
 
 #----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
@@ -115,7 +116,7 @@ onevent prox
 	
 	emit neighbour_value [id, highestpid]
 	
-	if phraseID == 0 then
+	if higherPhrase != 1 then
 		phraseID = pid
 		if coreclass == 1 then
 			phrasestart = id
@@ -125,6 +126,11 @@ onevent prox
 			phraseend = -1
 		end
 	end
+	
+			
+		if phraseID == -2 then
+			upscalable = 1
+		end
 		
 	if cu == 1 then
 		if phraseend != -1 then
@@ -137,6 +143,10 @@ onevent prox
 		
 	if updateSuccessful == 1 then
 		emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
+	end
+	
+	if phraseID <= 0 then
+		phraseComplete = 0
 	end
 	
 	if constructionComplete == 1 then
@@ -345,18 +355,16 @@ sub reset
 	cu = 0
 	consPossible = [1,1,0,0]
 	maxclass = class
-	highestpid = 0
 	phraseID = 0
 	oldpid = 0
 	oldid = 0
-		pid = 0
-
+	highestpid = 0
+	pid = 0
 	phrasetype = 0		# type of the phrase corresponding to the phraseID	
 	oldphraseID = 0
-	if phraseID > 0 then
-		phrasestart = id
-		phraseend = id
-	else
-		phrasestart = -1
-		phraseend = -1
-	end
+	upscalable = 0
+	phrasestart = 0
+	phraseend = 0
+	phrasecore = 0
+	higherPhrase = 0
+	updateComplete = 1

@@ -1,3 +1,4 @@
+# THE
 # DETERMINER
 
 #----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
@@ -26,6 +27,8 @@ var upscalable = 0		# is another increment possible?
 var updateSuccessful = 0
 var higherPhrase = 0	# does the robot belong to another phrase
 var cu = 0		# keep sending out checkupdate events?
+var lastPhraseAddition = 0	# ID of the core of the last phrase added
+
 
 # storage variables
 var consPossible[4] = [1,1,0,0]
@@ -119,7 +122,7 @@ onevent prox
 	
 	emit neighbour_value [id, highestpid]
 	
-	if phraseID == 0 then
+	if higherPhrase != 1  then
 		phraseID = pid
 		if coreclass == 1 then
 			phrasestart = id
@@ -136,16 +139,16 @@ onevent prox
 	end
 	#TODO end
 	
-	if cu == 1 then
-		if phraseend != -1 then
+	if cu == 1 or updateComplete == 0 then
+		if phraseend != -1 and phraseend != 0 then
 			emit checkUpdate [id, phrasecore, maxclass, phraseend]
 		else
 			emit checkUpdate [id, phrasecore, maxclass, id]
 		end
 	end
 	
-	if updateSuccessful == 1 then
-		emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
+	if updateSuccessful == 1  and lastPhraseAddition != 0 then
+		emit successfulUpdateConfirmation [id, lastPhraseAddition, phraseID, phrasetype, phraseComplete, upscalable]
 	end
 	
 	if constructionComplete == 1 then
@@ -154,11 +157,13 @@ onevent prox
 		emit phraseComplete [phraseID, upscalable]
 	end
 	
+	if phraseID <= 0 then
+		phraseComplete = 0
+	end
+	
 	
 	if phraseComplete == 1 and (prox.horizontal[2] < 10 or prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
 		upscalable = 1
-	else
-		upscalable = 0
 	end
 	
 	# if there are no neighbours, set colour to white
@@ -266,7 +271,7 @@ onevent searchNextCompletion
 		cu = 1
 		phrasecore = event.args[0]
 		updateComplete = 0
-		if phraseend != -1 then
+		if phraseend != -1 and phraseend != 0 then
 			emit checkUpdate [id, phrasecore, maxclass, phraseend]
 		else
 			emit checkUpdate [id, phrasecore, maxclass, id]
@@ -318,7 +323,12 @@ onevent checkUpdate
 		end
 		if updateSuccessful == 1 then
 			higherPhrase = 1
+			i = phraseend
 			phraseend = event.args[3]
+			if phraseend == 0 and i != 0 then
+				call sound.system(4)
+			end
+			lastPhraseAddition = event.args[0]
 			emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
 			if phraseComplete == 1 then
 				emit phraseComplete [phraseID, upscalable]
@@ -415,27 +425,25 @@ onevent updateDeclination
 	
 #----------------------------------------------------------------R E S E T T I N G-----------------------------------------------------------------------------------------------------
 sub reset
-	constructionComplete = 0
-	phraseComplete = 0
-	updateSuccessful = 0
-	cu = 0
 	np0comp = [class,0]
 	np1comp = [class,0,0]
 	consPossible = [1,1,0,0]
 	npPossible = [1,1,0]
+	constructionComplete = 0
+	phraseComplete = 0
+	updateSuccessful = 0
+	cu = 0
 	maxclass = class
-	highestpid = 0
-	phrasetype = 101		# type of the phrase corresponding to the phraseID	
-	oldphraseID = 0
 	phraseID = 0
-	pid = 0
 	oldpid = 0
 	oldid = 0
+	highestpid = 0
+	pid = 0
+	phrasetype = 101		# type of the phrase corresponding to the phraseID	
+	oldphraseID = 0
 	upscalable = 0
-	if phraseID > 0 then
-		phrasestart = id
-		phraseend = id
-	else
-		phrasestart = -1
-		phraseend = -1
-	end
+	phrasestart = 0
+	phraseend = 0
+	phrasecore = 0
+	higherPhrase = 0
+	updateComplete = 1
