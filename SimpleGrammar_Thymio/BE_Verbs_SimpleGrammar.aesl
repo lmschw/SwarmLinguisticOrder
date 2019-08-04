@@ -6,7 +6,7 @@
 
 #---------------------------------------------------------------------------variables--------------------------------------------------------------------------------------------------
 # word-specific values
-var value[] = [73,85] 			# the ASCII code every letter of the word as an array - 'is'
+var value[] = [73,83] 			# the ASCII code every letter of the word as an array - 'is'
 var class = 4								# category - be  in this case
 var coreclass = 1			# if the class is the core of a phrase
 
@@ -135,6 +135,8 @@ onevent prox
 	elseif  phraseComplete == 1 then
 		constructionComplete = 0
 		emit phraseComplete [phraseID, upscalable]
+	else
+		constructionComplete = 0
 	end
 	
 	if phraseID <= 0 then
@@ -177,6 +179,7 @@ sub establishIDs
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
 	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
 		id = 1
+		callsub reset
 		emit recountID
 	end
 
@@ -193,6 +196,7 @@ onevent prox.comm
 			id = 0
 		end
 		prox.comm.tx = id
+		callsub reset
 		emit recountID
 	end
 	
@@ -511,6 +515,14 @@ onevent updateDeclination
 	
 #----------------------------------------------------------------R E S E T T I N G-----------------------------------------------------------------------------------------------------
 sub reset
+	be_vp0comp = [0,class]
+	be_vp1comp = [0,class,0]
+	be_vp3comp = [0,class,0]
+	be_vp4comp = [0,class,0]
+	be_vp5comp = [0,class,0,0]
+	be_vp13comp = [0,class,0]	
+	be_vp14comp = [0,class,0,0]	
+	be_vp15comp = [0,class,0,0]
 	constructionComplete = 0
 	phraseComplete = 0
 	updateSuccessful = 0

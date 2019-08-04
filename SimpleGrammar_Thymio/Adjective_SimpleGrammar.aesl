@@ -200,6 +200,7 @@ sub establishIDs
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
 	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
 		id = 1
+		callsub reset
 		emit recountID
 	end
 
@@ -216,6 +217,7 @@ onevent prox.comm
 			id = 0
 		end
 		prox.comm.tx = id
+		callsub reset
 		emit recountID
 	end
 	
