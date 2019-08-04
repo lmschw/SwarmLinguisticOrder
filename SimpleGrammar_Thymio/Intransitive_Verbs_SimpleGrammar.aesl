@@ -1,12 +1,12 @@
-# IS
-# VERBS: BE
+# WALKS
+# VERBS: INTRANS
 
 #----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
 
 #---------------------------------------------------------------------------variables--------------------------------------------------------------------------------------------------
 # word-specific values
-var value[] = [73,83] 			# the ASCII code every letter of the word as an array - 'is'
+var value[] = [8] 			# the ASCII code every letter of the word as an array - 'is'
 var class = 4								# category - be  in this case
 var coreclass = 1			# if the class is the core of a phrase
 
@@ -47,27 +47,19 @@ var i = 0
 var j = 0
 
 # completion check variables: be can be used as a transitive or intransitive verb in some circumstances
-var be_vp0comp[] = [0,class]
-var be_vp1comp[] = [0,class,0]
-var be_vp3comp[] = [0,class,0]
-var be_vp4comp[] = [0,class,0]
-var be_vp5comp[] = [0,class,0,0]
-var be_vp13comp[] = [0,class,0]
-var be_vp14comp[] = [0,class,0,0]
-var be_vp15comp[] = [0,class,0,0]
+var intrans_vp0comp[] = [0,class]
+var intrans_vp4comp[] = [0,class,0]
+var intrans_vp7comp[] = [0,0,0,class]
+var intrans_vp10comp[] = [0,0,0,class,0]
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------constructions-------------------------------------------------------------------------------------------------
 
 # VPs: 102
 var vp0[] = [101,2]		# NP + intransV
-var vp1[] = [101,3,101]	# NP + transV + NP
-var vp3[] = [101,4,104]	# NP + be + ADJP
 var vp4[] = [101, 2,103]	# NP + intransV + PP
-var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
-var vp13[] = [101,4,10]	# NP + be + NEG
-var vp14[] = [101,4,10,104]	#NP + be + NEG + ADJP
-var vp15[] = [101,4,10,101]	#NP + be + NEG + ADJP
+var vp7[] = [101,17,10,2]	# NP + do + NEG + intransV
+var vp10[] = [101,17,10,2,103]	# NP + do + NEG + intransV + PP
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------functions----------------------------------------------------------------------------------------------------
@@ -273,24 +265,11 @@ onevent searchPrevCompletion
 
 #----------------------------------------------------------------UPDATES----------------------------------------------------------------------------------------------------------------
 # if a robot sends back a message, the robot checks if the new value should be included in the phrase
-#var be_vp0comp[] = [0,class]
-#var be_vp1comp[] = [0,class,0]
-#var be_vp3comp[] = [0,class,0]
-#var be_vp4comp[] = [0,class,0]
-#var be_vp5comp[] = [0,class,0,0]
-#var be_vp13comp[] = [0,class,0]
-#var be_vp14comp[] = [0,class,0,0]
-#var be_vp15comp[] = [0,class,0,0]
-#
-## VPs: 102
+# VPs: 102
 #0:var vp0[] = [101,2]		# NP + intransV
-#1:var vp1[] = [101,3,101]	# NP + transV + NP
-#2:var vp3[] = [101,4,104]	# NP + be + ADJP
-#3:var vp4[] = [101, 2,103]	# NP + intransV + PP
-#4:var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
-#5:var vp13[] = [101,4,10]	# NP + be + NEG
-#6:var vp14[] = [101,4,10,104]	#NP + be + NEG + ADJP
-#7:var vp15[] = [101,4,10,101]	#NP + be + NEG + ADJP
+#1:var vp4[] = [101, 2,103]	# NP + intransV + PP
+#2:var vp7[] = [101,17,10,2]	# NP + do + NEG + intransV
+#3:var vp10[] = [101,17,10,2,103]	# NP + do + NEG + intransV + PP
 
 #	emit checkUpdate [id{0}, phrasecore{1}, maxclass{2}, phraseend{3}]
 onevent checkUpdate
@@ -302,20 +281,12 @@ onevent checkUpdate
 		updateSuccessful = 0
 		#2:var vp3[] = [101,4,104]	# NP + be + ADJP
 		#6:var vp14[] = [101,4,10,104]	#NP + be + NEG + ADJP
-		if event.args[2] == 104 then
+		if event.args[2] == 103 then
 			updateSuccessful = 1
-			if be_vp3comp[2] == 0 then
-				be_vp3comp[2] = 104
-				if be_vp3comp[0] == 101 then
-					upscalable = 1
-					phraseComplete = 1
-				else
-					upscalable = 0
-					phraseComplete = 0
-				end
-			elseif be_vp14comp[2] == 10 then
-				be_vp14comp[2] = 104
-				if be_vp14comp[0] == 101 then
+			if intrans_vp4comp[2] == 0 or intrans_vp10comp[4] == 0 then
+			 	intrans_vp4comp[2] = 103
+			 	intrans_vp10comp[4] = 103
+				if intrans_vp4comp[0] == 101 then
 					upscalable = 1
 					phraseComplete = 1
 				else
@@ -323,90 +294,68 @@ onevent checkUpdate
 					phraseComplete = 0
 				end
 			end
-		#1:var vp1[] = [101,3,101]	# NP + transV + NP
-		#4:var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
-		#7:var vp15[] = [101,4,10,101]	#NP + be + NEG + ADJP
-		elseif event.args[2] == 101 then
-			if be_vp1comp[2] == 0 and be_vp5comp[2] == 0 then
-				be_vp1comp[2] = 101
-				be_vp5comp[2] = 101
-				updateSuccessful = 1
-				if (be_vp1comp[0] == 101) or (be_vp5comp[0] == 101 and be_vp5comp[3] == 103) then
-					phraseComplete = 1
-					upscalable = 1
-				end
-			elseif be_vp15comp[2] == 10 and be_vp15comp[3] == 0 then
-				be_vp15comp[3] = 101
-				updateSuccessful = 1
-				if be_vp15comp[0] == 101 then
-					phraseComplete = 1
-					upscalable = 1
-				else
-					upscalable = 0
-					phraseComplete = 0
-				end
-			end
-		#3:var vp4[] = [101, 2,103]	# NP + intransV + PP
-		#4:var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
-		elseif event.args[2] == 103 then
-			if be_vp4comp[2] == 0 then
-				be_vp4comp[2] = 103
-				updateSuccessful = 1
-				if be_vp4comp[0] == 101 then
-					phraseComplete = 1
-					upscalable = 1
-				end
-			elseif be_vp5comp[2] == 101 and be_vp5comp[3] == 0 then
-				be_vp5comp[3] = 103
-				updateSuccessful = 1
-				if be_vp5comp[0] == 101 then
-					phraseComplete = 1
-					upscalable = 1
-				else
-					upscalable = 0
-					phraseComplete = 0
-				end
-			end
-		#5:var vp13[] = [101,4,10]	# NP + be + NEG
-		#6:var vp14[] = [101,4,10,104]	#NP + be + NEG + ADJP
-		#7:var vp15[] = [101,4,10,101]	#NP + be + NEG + ADJP
-		elseif event.args[2] == 10 then
-			be_vp13comp[2] = 10
-			be_vp14comp[2] = 10
-			be_vp15comp[2] = 10
-				updateSuccessful = 1
-				if be_vp13comp[0] == 101 then
-					phraseComplete = 1
-				else
-					phraseComplete = 0
-					upscalable = 0
-				end
 		end
 		#0:var vp0[] = [101,2]		# NP + intransV
-#1:var vp1[] = [101,3,101]	# NP + transV + NP
-#2:var vp3[] = [101,4,104]	# NP + be + ADJP
-#3:var vp4[] = [101, 2,103]	# NP + intransV + PP
-#4:var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
-#5:var vp13[] = [101,4,10]	# NP + be + NEG
-#6:var vp14[] = [101,4,10,104]	#NP + be + NEG + ADJP
-#7:var vp15[] = [101,4,10,101]	#NP + be + NEG + ADJP
+#0:var vp0[] = [101,2]		# NP + intransV
+#1:var vp4[] = [101, 2,103]	# NP + intransV + PP
+#2:var vp7[] = [101,17,10,2]	# NP + do + NEG + intransV
+#3:var vp10[] = [101,17,10,2,103]	# NP + do + NEG + intransV + PP
 #	emit checkUpdate [id{0}, phrasecore{1}, maxclass{2}, phrasestart{3}]
-
 	# sender earlier in the line
 	elseif event.args[1] == id then
 		j = 1
 		updateSuccessful = 0
-		if event.args[2] == 101 then
-			be_vp0comp[0] = 101
-			be_vp1comp[0] = 101
-			be_vp3comp[0] = 101
-			be_vp4comp[0] = 101
-			be_vp5comp[0] = 101
-			be_vp13comp[0] = 101
-			be_vp14comp[0] = 101
-			be_vp15comp[0] = 101
+		if event.args[2] == 10 then
+			if intrans_vp7comp[2] == 0 or intrans_vp10comp[2] == 0 then
+				intrans_vp7comp[2] = 10
+				intrans_vp10comp[2] = 10
+				updateSuccessful = 1
+				upscalable = 0
+				phraseComplete = 0
+			end
+		elseif event.args[2] == 17 then
+			if (intrans_vp7comp[2] == 10 and intrans_vp7comp[1] == 0) or (intrans_vp10comp[2] == 0 and intrans_vp10comp[1] == 0) then
+				intrans_vp7comp[1] = 17
+				intrans_vp10comp[2] = 17
+				updateSuccessful = 1
+				upscalable = 0
+				phraseComplete = 0
+			end
+		elseif event.args[2] == 101 then
 			updateSuccessful = 1
-			phraseComplete = 1
+			if intrans_vp0comp[0] == 0 then
+				phraseComplete = 1
+				updateSuccessful = 1
+				intrans_vp0comp[0] = 101
+			end
+			if intrans_vp4comp[0] == 0 then
+				intrans_vp4comp[0] = 101
+				updateSuccessful = 1
+				if intrans_vp4comp[2] == 0 then
+					phraseComplete = 0
+					upscalable = 0
+				else
+					phraseComplete = 1
+					upscalable = 1
+				end
+			end
+			if intrans_vp7comp[0] == 0 and intrans_vp7comp[1] == 17 and intrans_vp7comp[2] == 10 then
+				phraseComplete = 1
+				updateSuccessful = 1
+				upscalable = 0
+				intrans_vp7comp[0] = 101
+			end
+			if intrans_vp10comp[0] == 0 and intrans_vp7comp[1] == 17 and intrans_vp7comp[2] == 10 then
+				intrans_vp10comp[0] = 101
+				updateSuccessful = 1
+				if intrans_vp10comp[4] == 103 then
+					phraseComplete = 1
+					upscalable = 1
+				else
+					phraseComplete = 0
+					upscalable = 0
+				end
+			end
 		end
 	end
 	if bool == 1 or j == 1 then
@@ -516,14 +465,10 @@ onevent updateDeclination
 	
 #----------------------------------------------------------------R E S E T T I N G-----------------------------------------------------------------------------------------------------
 sub reset
-	be_vp0comp = [0,class]
-	be_vp1comp = [0,class,0]
-	be_vp3comp = [0,class,0]
-	be_vp4comp = [0,class,0]
-	be_vp5comp = [0,class,0,0]
-	be_vp13comp = [0,class,0]	
-	be_vp14comp = [0,class,0,0]	
-	be_vp15comp = [0,class,0,0]
+ 	intrans_vp0comp = [0,class]
+ 	intrans_vp4comp = [0,class,0]
+ 	intrans_vp7comp = [0,0,0,class]
+ 	intrans_vp10comp = [0,0,0,class,0]
 	constructionComplete = 0
 	phraseComplete = 0
 	updateSuccessful = 0
