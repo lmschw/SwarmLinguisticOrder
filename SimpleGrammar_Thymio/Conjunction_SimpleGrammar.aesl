@@ -75,6 +75,9 @@ var vp9[] = [101,17,10,16,101,101]	# NP + do + NEG + transV2 + NP + NP
 var vp10[] = [101,17,10,2,103]	# NP + do + NEG + intransV + PP
 var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
 var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
+var vp13[] = [101,4,10]	# NP + be + NEG
+var vp14[] = [101,4,10,104]	#NP + be + NEG + ADJP
+var vp15[] = [101,4,10,101]	#NP + be + NEG + ADJP
 
 # PPs: 103
 var pp0[] = [11,101]	# P + NP
@@ -107,17 +110,38 @@ onevent prox
 	
 	oldid = id
 	oldpid = pid
+	#/////////////////////////////////////////////////// bottom layer communication
+	# if no neighbour behind but neighbour in front, ID = 1
+	if id == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+		id = 1
+		# send out the robot's ID
+		prox.comm.tx = id
+	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
+	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
+		id = 1
+		emit recountID
+	end
 	
-	# call the subroutine to establish the IDs
-	callsub establishIDs
-	callsub establishPhraseIDs
-	
+	#///////////////////////////////////////////////////top layer communication
+	if pid == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+		if class != 1 and class != 10 and class != 12 and class != 14 then
+			pid = 1
+			highestpid = 1
+			emit neighbour_value [id, pid]
+		else
+			pid = -2
+			emit neighbour_value [id, 0]			
+		end
+	else
+		emit neighbour_value [id, highestpid]
+	end	
 	if oldid != id and oldpid != pid then
 		callsub reset
 	end
 	
 	emit neighbour_value [id, highestpid]
 	
+	#//////////////////////////////////////////////////
 	if higherPhrase != 1  then
 		phraseID = pid
 		if coreclass == 1 then
@@ -182,18 +206,6 @@ onevent prox
 #-----------------------------------------------------------------------C O M M U N I C A T I O N----------------------------------------------------------------------------------
 #-----------------------------------------------------------------------BOTTOM LAYER COMMUNICATION------------------------------------------------------------------------
 # BOTTOM LAYER COMMUNICATION
-sub establishIDs
-	# if no neighbour behind but neighbour in front, ID = 1
-	if id == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
-		id = 1
-		# send out the robot's ID
-		prox.comm.tx = id
-	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
-	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
-		id = 1
-		emit recountID
-	end
-
 
 onevent prox.comm
 	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
@@ -229,19 +241,6 @@ onevent recountID
 
 #-------------------------------------------------------------------------TOP LAYER COMMUNICATION--------------------------------------------------------------------------------
 # TOP LAYER COMMUNICATION
-sub establishPhraseIDs
-	if pid == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
-		if class != 1 and class != 10 and class != 12 and class != 14 then
-			pid = 1
-			highestpid = 1
-			emit neighbour_value [id, pid]
-		else
-			pid = -2
-			emit neighbour_value [id, 0]			
-		end
-	else
-		emit neighbour_value [id, highestpid]
-	end
 
 # neighbour_value [id{0}, maxphraseid{1}]
 onevent neighbour_value
@@ -276,6 +275,11 @@ onevent searchNextCompletion
 		phrasecore = event.args[0]
 		bl = 1
 		emit block [id, phrasecore, maxclass]
+	end
+	
+onevent searchPrevCompletion
+	if  phraseID != event.args[1] and maxclass > 99 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  102)  and event.args[2] == id+1 then
+		emit searchPrevCompletion [event.args[0], event.args[1], id, event.args[3]]
 	end
 
 #----------------------------------------------------------------UPDATES----------------------------------------------------------------------------------------------------------------
