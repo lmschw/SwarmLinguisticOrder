@@ -136,8 +136,6 @@ onevent prox
 		callsub reset
 	end
 	
-	emit neighbour_value [id, highestpid]
-	
 	if higherPhrase != 1 then
 		phraseID = pid
 		if coreclass == 1 then
@@ -161,7 +159,6 @@ onevent prox
 			emit checkUpdate [id, phrasecore, maxclass, id]
 		end
 	end
-	
 		
 	if updateSuccessful == 1 then
 		emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
@@ -173,12 +170,6 @@ onevent prox
 	
 	if phraseID <= 0 then
 		phraseComplete = 0
-	end
-	
-	if constructionComplete == 1 then
-		emit constructionComplete [phraseID]
-	elseif phraseComplete == 1 then
-		emit phraseComplete [phraseID, upscalable]
 	end
 	
 	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then

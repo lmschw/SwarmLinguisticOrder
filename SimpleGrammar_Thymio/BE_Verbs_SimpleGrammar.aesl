@@ -84,7 +84,7 @@ onevent prox
 	oldid = id
 	oldpid = pid
 	
-	# call the subroutine to establish the IDs
+	#//////////////////////////////////////////////////////bottom layer communication
 	# if no neighbour behind but neighbour in front, ID = 1
 	if id == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		id = 1
@@ -97,6 +97,7 @@ onevent prox
 		emit recountID
 	end
 	
+	#///////////////////////////////////////////////////top layer communication
 	if pid == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		if class != 1 and class != 10 and class != 12 and class != 14 then
 			pid = 1
@@ -112,8 +113,7 @@ onevent prox
 	if oldid != id and oldpid != pid then
 		callsub reset
 	end
-	
-	emit neighbour_value [id, highestpid]
+	#///////////////////////////////////////////////////////
 	
 	if higherPhrase != 1  then
 		phraseID = pid
@@ -149,24 +149,28 @@ onevent prox
 		emit block [id, phrasecore, maxclass]
 	end
 	
+	if oldphraseID != phraseID and oldphraseID > 0 then
+		emit supercede [id, oldphraseID, phraseID, phrasetype, phraseComplete, upscalable]
+	end
 	
-	if constructionComplete == 1 or (upscalable == 1 and phraseComplete == 1) then
-		constructionComplete = 1
-		emit constructionComplete [phraseID]
-	elseif  phraseComplete == 1 then
-		constructionComplete = 0
-		emit phraseComplete [phraseID, upscalable]
+	if phraseID > 0 and id > 0 then
+		if constructionComplete == 1 or (upscalable == 1 and phraseComplete == 1) then
+			constructionComplete = 1
+			emit constructionComplete [phraseID]
+		elseif  phraseComplete == 1 then
+			constructionComplete = 0
+			emit phraseComplete [phraseID, upscalable]
+		end
 	else
 		constructionComplete = 0
 	end
 	
-	if phraseID <= 0 then
+	if phraseID <= 0 or (phrasestart == id and phraseend == id) then
 		phraseComplete = 0
 	end
 	
 	
 	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
-	call sound.system(3)
 		upscalable = 1
 	end
 	
@@ -186,7 +190,6 @@ onevent prox
 	else
 		call leds.top(32,32,32)
 	end
-
 
 #-----------------------------------------------------------------------C O M M U N I C A T I O N----------------------------------------------------------------------------------
 #-----------------------------------------------------------------------BOTTOM LAYER COMMUNICATION------------------------------------------------------------------------

@@ -138,9 +138,7 @@ onevent prox
 	if oldid != id and oldpid != pid then
 		callsub reset
 	end
-	
-	emit neighbour_value [id, highestpid]
-	
+		
 	#//////////////////////////////////////////////////
 	if higherPhrase != 1  then
 		phraseID = pid

@@ -6,8 +6,8 @@
 
 #---------------------------------------------------------------------------variables--------------------------------------------------------------------------------------------------
 # word-specific values
-var value[] = [8] 			# the ASCII code every letter of the word as an array - 'is'
-var class = 4								# category - be  in this case
+var value[] = [87,65,76,75,83] 			# the ASCII code every letter of the word as an array - 'walks'
+var class = 2								# category - be  in this case
 var coreclass = 1			# if the class is the core of a phrase
 
 # grammaticality judgements
@@ -105,9 +105,7 @@ onevent prox
 	if oldid != id and oldpid != pid then
 		callsub reset
 	end
-	#///////////////////////////////////////////////////////
-	emit neighbour_value [id, highestpid]
-	
+	#///////////////////////////////////////////////////////	
 	if higherPhrase != 1  then
 		phraseID = pid
 		if coreclass == 1 then
@@ -142,24 +140,28 @@ onevent prox
 		emit block [id, phrasecore, maxclass]
 	end
 	
+	if oldphraseID != phraseID and oldphraseID > 0 then
+		emit supercede [id, oldphraseID, phraseID, phrasetype, phraseComplete, upscalable]
+	end
 	
-	if constructionComplete == 1 or (upscalable == 1 and phraseComplete == 1) then
-		constructionComplete = 1
-		emit constructionComplete [phraseID]
-	elseif  phraseComplete == 1 then
-		constructionComplete = 0
-		emit phraseComplete [phraseID, upscalable]
+	if phraseID > 0 and id > 0 then
+		if constructionComplete == 1 or (upscalable == 1 and phraseComplete == 1) then
+			constructionComplete = 1
+			emit constructionComplete [phraseID]
+		elseif  phraseComplete == 1 then
+			constructionComplete = 0
+			emit phraseComplete [phraseID, upscalable]
+		end
 	else
 		constructionComplete = 0
 	end
 	
-	if phraseID <= 0 then
+	if phraseID <= 0 or (phrasestart == id and phraseend == id) then
 		phraseComplete = 0
 	end
 	
 	
 	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
-	call sound.system(3)
 		upscalable = 1
 	end
 	
@@ -327,10 +329,7 @@ onevent checkUpdate
 			if intrans_vp4comp[0] == 0 then
 				intrans_vp4comp[0] = 101
 				updateSuccessful = 1
-				if intrans_vp4comp[2] == 0 then
-					phraseComplete = 0
-					upscalable = 0
-				else
+				if intrans_vp4comp[2] != 0 then
 					phraseComplete = 1
 					upscalable = 1
 				end

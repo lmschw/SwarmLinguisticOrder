@@ -141,9 +141,7 @@ onevent prox
 	if oldid != id and oldpid != pid then
 		callsub reset
 	end
-	
-	emit neighbour_value [id, highestpid]
-	
+		
 	if higherPhrase != 1 then
 		phraseID = pid
 		if coreclass == 1 then
@@ -175,14 +173,15 @@ onevent prox
 		emit successfulUpdateConfirmation [id, lastPhraseAddition, phraseID, phrasetype, phraseComplete, upscalable]
 	end
 	
-		if bl == 1 then
+	if bl == 1 then
 		emit block [id, phrasecore, maxclass]
 	end
 	
+	if oldphraseID != phraseID and oldphraseID > 0 then
+		emit supercede [id, oldphraseID, phraseID, phrasetype, phraseComplete, upscalable]
+	end
 	
-	if constructionComplete == 1 then
-		emit constructionComplete [phraseID]
-	elseif phraseComplete == 1 then
+	if phraseComplete == 1 then
 		emit phraseComplete [phraseID, upscalable]
 	end
 	
