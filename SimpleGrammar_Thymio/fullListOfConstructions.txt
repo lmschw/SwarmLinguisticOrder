@@ -1,0 +1,42 @@
+# constructions: 100
+var c0[] = [102]	# VP
+var c1[] = [105]	# ADVP
+var c2[] = [100,14,100]	# construction + CONJ + construction
+var c3[] = [100,15,100]	# construction + SUB + construction
+
+# NPs: 101
+var np0[] = [8,1]		# DET + N
+var np1[] = [8,104,1]	# DEP+ ADJP + N
+var np2[] = [9]	# PRO
+
+# VPs: 102
+var vp0[] = [101,2]		# NP + intransV
+var vp1[] = [101,3,101]	# NP + transV + NP
+var vp2[] = [101,16,101,101]	# NP + transV2 + NP + NP
+var vp3[] = [101,4,104]	# NP + be + ADJP
+var vp4[] = [101, 2,103]	# NP + intransV + PP
+var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
+var vp6[] = [101,16,101,101,103]	# NP + transV2 + NP + NP + PP
+var vp7[] = [101,17,10,2]	# NP + do + NEG + intransV
+var vp8[] = [101,17,10,3,101]	# NP + do + NEG + transV + NP
+var vp9[] = [101,17,10,16,101,101]	# NP + do + NEG + transV2 + NP + NP
+var vp10[] = [101,17,10,2,103]	# NP + do + NEG + intransV + PP
+var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
+var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
+var vp13[] = [101,4,10]	# NP + be + NEG
+var vp14[] = [101,4,10,104]	#NP + be + NEG + ADJP
+var vp15[] = [101,4,10,101]	#NP + be + NEG + ADJP
+
+# PPs: 103
+var pp0[] = [11,101]	# P + NP
+var pp1[] = [103,103]	# PP + PP
+var pp2[] = [103,14,103]	# PP + CONJ + PP
+
+# ADJP: 104
+var adjp0[] = [7]	# ADJ
+var adjp1[] = [7,104]	# ADJ + ADJP
+var adjp2[] = [7,14,104]	# ADJ + CONJ + ADJP
+var adjp3[] = [104,14,104]	# ADJP + CONJ + ADJP
+
+# ADVP:105
+var advp0[] = [102,13]	# VP + ADV
