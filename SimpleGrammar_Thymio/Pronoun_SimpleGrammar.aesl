@@ -225,7 +225,7 @@ onevent neighbour_value
 # adjectives on their own can only be part of an ADJP and they will be the core of that phrase. If they already form an ADJP, they can only become part of another ADJP, a NP or a VP. In all other cases, the adjective notifies the sender that there will not be a completion including the adjective.
 #	emit searchNextCompletion [id{0}, phraseID{1}, phraseend{2}, 	phrasetype{3}]
 onevent searchNextCompletion
-	if  phraseID != event.args[1] and maxclass == 101 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  101 or event.args[3] == 102 or event.args[3] == 104)  and event.args[2] == id-1 then
+	if  phraseID != event.args[1] and maxclass == 101 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  101 or event.args[3] == 102 or event.args[3] == 104 or event.args[3] == 103)  and event.args[2] == id-1 then
 		cu = 0
 		bl = 0
 		next = 1
@@ -236,7 +236,7 @@ onevent searchNextCompletion
 		else
 			emit checkUpdate [id, phrasecore, maxclass, id]
 		end
-	elseif phraseID != event.args[1] and event.args[2] == id-1 and  (event.args[3] !=  101 and event.args[3] != 102 and event.args[3] != 104 )then
+	elseif phraseID != event.args[1] and event.args[2] == id-1 and  (event.args[3] !=  101 and event.args[3] != 102 and event.args[3] != 104 and event.args[3] != 103)then
 		phrasecore = event.args[0]
 		bl = 1
 		emit block [id, phrasecore, maxclass]
@@ -244,7 +244,7 @@ onevent searchNextCompletion
 
 onevent searchPrevCompletion
 	if  phraseID != event.args[1] and maxclass == 101 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  102)  and event.args[2] == id+1 then
-		call sound.system(5)
+		#call sound.system(5)
 
 		cu = 1
 		bl = 0

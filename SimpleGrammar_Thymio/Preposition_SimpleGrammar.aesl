@@ -159,15 +159,12 @@ onevent prox
 	if phraseComplete == 1 then
 		maxclass = phrasetype
 		emit phraseComplete [phraseID, upscalable]
+	else
+		upscalable = 0
 	end
 	
-	if phraseID <= 0 then
+	if phraseID <= 0 or (phrasestart == id and phraseend == id) then
 		phraseComplete = 0
-	end
-	
-	
-	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
-		upscalable = 1
 	end
 	
 	# if there are no neighbours, set colour to white
