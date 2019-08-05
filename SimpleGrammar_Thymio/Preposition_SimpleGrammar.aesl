@@ -1,19 +1,19 @@
-# WALKS
-# VERBS: INTRANS
+# WITH
+# PREPOSITION
 
 #----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
 
 #---------------------------------------------------------------------------variables--------------------------------------------------------------------------------------------------
 # word-specific values
-var value[] = [87,65,76,75,83] 			# the ASCII code every letter of the word as an array - 'walks'
-var class = 2								# category - be  in this case
+var value[] = [87, 73, 84, 72] 			# the ASCII code every letter of the word as an array - 'with'
+var class = 11								# category - preposition  in this case
 var coreclass = 1			# if the class is the core of a phrase
 
 # grammaticality judgements
 var maxclass = class	# maximal phrase category achieved, e.g. NP, VP, construction etc.
 var phraseID = 0			# id of the phrase containing the word
-var phrasetype = 102		# type of the phrase corresponding to the phraseID
+var phrasetype = 103	# type of the phrase corresponding to the phraseID
 var oldphraseID = 0	# if superceding phrase, used to notify all other members of the same phrase
 var phraseComplete = 0	# if the phrase is complete
 var constructionComplete = 0	# if the whole construction is complete
@@ -26,12 +26,16 @@ var updateComplete = 1
 var upscalable = 0		# is another increment possible?
 var updateSuccessful = 0
 var higherPhrase = 0	# does the robot belong to another phrase
+var cu = 0		# keep sending out checkupdate events?
 var bl = 0			# keep sending out the block event?
 var lastPhraseAddition = 0	# ID of the core of the last phrase added
+var next = 0	# boolean to check if the checkupdate should send the prhasestart or phraseend
 
 
 # storage variables
 var consPossible[4] = [1,1,0,0]
+var ppPossible[] = [1,0,0]
+var ppLengths [] = [2,2,3]
 
 # general variables
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the backhigh
@@ -46,23 +50,31 @@ var bool = 0
 var i = 0
 var j = 0
 
-# completion check variables: be can be used as a transitive or intransitive verb in some circumstances
-var intrans_vp0comp[] = [0,class]
-var intrans_vp4comp[] = [0,class,0]
-var intrans_vp7comp[] = [0,0,0,class]
-var intrans_vp10comp[] = [0,0,0,class,0]
+# completion check variables
+var pp0comp[] = [class,0]
+var pp1comp[] = [103,0]
+var pp2comp[] = [103,0,0]
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------constructions-------------------------------------------------------------------------------------------------
-
 # VPs: 102
-var vp0[] = [101,2]		# NP + intransV
 var vp4[] = [101, 2,103]	# NP + intransV + PP
-var vp7[] = [101,17,10,2]	# NP + do + NEG + intransV
+var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
+var vp6[] = [101,16,101,101,103]	# NP + transV2 + NP + NP + PP
 var vp10[] = [101,17,10,2,103]	# NP + do + NEG + intransV + PP
+var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
+var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
+
+# PPs: 103
+var pp0[] = [11,101]	# P + NP
+var pp1[] = [103,103]	# PP + PP
+var pp2[] = [103,14,103]	# PP + CONJ + PP
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------functions----------------------------------------------------------------------------------------------------
+
+# resetting the leds so that no previous colour setting interferes
+call leds.top(0,0,0)
 
 # enabling communication
 call prox.comm.enable(1)
@@ -76,8 +88,7 @@ onevent prox
 	oldid = id
 	oldpid = pid
 	
-	#//////////////////////////////////////////////////////bottom layer communication
-	# if no neighbour behind but neighbour in front, ID = 1
+	# call the subroutine to establish the IDs
 	if id == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		id = 1
 		# send out the robot's ID
@@ -89,7 +100,6 @@ onevent prox
 		emit recountID
 	end
 	
-	#///////////////////////////////////////////////////top layer communication
 	if pid == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		if class != 1 and class != 10 and class != 12 and class != 14 then
 			pid = 1
@@ -102,11 +112,7 @@ onevent prox
 	else
 		emit neighbour_value [id, highestpid]
 	end	
-	if oldid != id and oldpid != pid then
-		callsub reset
-	end
-	#///////////////////////////////////////////////////////
-	
+		
 	if higherPhrase != 1  then
 		phraseID = pid
 		if coreclass == 1 then
@@ -119,15 +125,19 @@ onevent prox
 	end
 		
 	#TODO what I need
-	if id != 0 and phraseID != 0 and (maxclass == class or maxclass == 102) then
+	if id != 0 and phraseID != 0 and (maxclass == class) and upscalable == 0 then
 			emit searchNextCompletion [id, phraseID, phraseend, 	phrasetype]
-			emit searchPrevCompletion [id, phraseID, phrasestart, phrasetype]
 	end
 	#TODO end
 	
-	if updateComplete == 0 then
-		if phraseend != -1 and phraseend != 0 then
+	if cu == 1 or updateComplete == 0 then
+		#call sound.system(7)
+		if next == 1 and (phraseend != -1 and phraseend != 0) then
 			emit checkUpdate [id, phrasecore, maxclass, phraseend]
+		elseif next == 1 then
+			emit checkUpdate [id, phrasecore, maxclass, id]
+		elseif (phrasestart != -1 and phrasestart != 0) then
+			emit checkUpdate [id, phrasecore, maxclass, phrasestart]
 		else
 			emit checkUpdate [id, phrasecore, maxclass, id]
 		end
@@ -145,19 +155,13 @@ onevent prox
 		emit supercede [id, oldphraseID, phraseID, phrasetype, phraseComplete, upscalable]
 	end
 	
-	if phraseID > 0 and id > 0 then
-		if constructionComplete == 1 or (upscalable == 1 and phraseComplete == 1) then
-			constructionComplete = 1
-			emit constructionComplete [phraseID]
-		elseif  phraseComplete == 1 then
-			constructionComplete = 0
-			emit phraseComplete [phraseID, upscalable]
-		end
-	else
-		constructionComplete = 0
+
+	if phraseComplete == 1 then
+		maxclass = phrasetype
+		emit phraseComplete [phraseID, upscalable]
 	end
 	
-	if phraseID <= 0 or (phrasestart == id and phraseend == id) then
+	if phraseID <= 0 then
 		phraseComplete = 0
 	end
 	
@@ -225,6 +229,7 @@ onevent recountID
 #-------------------------------------------------------------------------TOP LAYER COMMUNICATION--------------------------------------------------------------------------------
 # TOP LAYER COMMUNICATION
 
+
 # neighbour_value [id{0}, maxphraseid{1}]
 onevent neighbour_value
 	if id == event.args[0]+1 then
@@ -241,130 +246,76 @@ onevent neighbour_value
 	
 #-----------------------------------------------------------------G R A M M A T I C A L I T Y    J U D G E M E N T S----------------------------------------------------------------
 #-----------------------------------------------------------------SEARCH EVENTS------------------------------------------------------------------------------------------------------
-# cannot complete a construction as a next.
+# adjectives on their own can only be part of an ADJP and they will be the core of that phrase. If they already form an ADJP, they can only become part of another ADJP, a NP or a VP. In all other cases, the adjective notifies the sender that there will not be a completion including the adjective.
 #	emit searchNextCompletion [id{0}, phraseID{1}, phraseend{2}, 	phrasetype{3}]
 
-# can only complete a ADVP
-#	emit searchNextCompletion [id{0}, phraseID{1}, phrasestart{2}, 	phrasetype{3}]	
-onevent searchPrevCompletion
-	if  phraseID != event.args[1] and maxclass == 102 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  101)  and event.args[2] == id+1 then
+onevent searchNextCompletion
+	if  phraseID != event.args[1] and maxclass == 103 and upscalable == 1 and  updateComplete == 1 and (event.args[3] == 102)  and event.args[2] == id-1 then
+		cu = 0
 		bl = 0
+		next = 1
 		phrasecore = event.args[0]
 		updateComplete = 0
-		if phrasestart != -1 and phrasestart != 0 then
-			emit checkUpdate [id, phrasecore, maxclass, phrasestart]
+		if phraseend != -1 and phraseend != 0 then
+			emit checkUpdate [id, phrasecore, maxclass, phraseend]
 		else
 			emit checkUpdate [id, phrasecore, maxclass, id]
 		end
-	elseif phraseID != event.args[1] and event.args[2] == id+1 and  (event.args[3] !=  101 )then
+	elseif phraseID != event.args[1] and event.args[2] == id-1 and  ( event.args[3] != 102) then
 		phrasecore = event.args[0]
 		bl = 1
 		emit block [id, phrasecore, maxclass]
 	end
 
+onevent searchPrevCompletion
+	if  phraseID != event.args[1] and maxclass > 99 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  102)  and event.args[2] == id+1 then
+		emit searchPrevCompletion [event.args[0], event.args[1], id, event.args[3]]
+	end
+
 #----------------------------------------------------------------UPDATES----------------------------------------------------------------------------------------------------------------
 # if a robot sends back a message, the robot checks if the new value should be included in the phrase
-# VPs: 102
-#0:var vp0[] = [101,2]		# NP + intransV
-#1:var vp4[] = [101, 2,103]	# NP + intransV + PP
-#2:var vp7[] = [101,17,10,2]	# NP + do + NEG + intransV
-#3:var vp10[] = [101,17,10,2,103]	# NP + do + NEG + intransV + PP
+#var ppPossible[] = [1,0,0]
+#var ppLengths [] = [2,2,3]
+#
+## completion check variables
+#var pp0comp[] = [class,0]
+#var pp1comp[] = [103,0]
+#var pp2comp[] = [103,0,0]
+#
+## PPs: 103
+#var pp0[] = [11,101]	# P + NP
+#var pp1[] = [103,103]	# PP + PP
+#var pp2[] = [103,14,103]	# PP + CONJ + PP
 
 #	emit checkUpdate [id{0}, phrasecore{1}, maxclass{2}, phraseend{3}]
 onevent checkUpdate
-	bool = 0
-	j = 0
-	# sender further down the line
 	if event.args[0] == phraseend + 1 then
-		bool = 1
 		updateSuccessful = 0
-		#2:var vp3[] = [101,4,104]	# NP + be + ADJP
-		#6:var vp14[] = [101,4,10,104]	#NP + be + NEG + ADJP
-		if event.args[2] == 103 then
+		if event.args[2] == 101 and ppPossible[0] == 1 then
+			pp0comp[1] = 101
+			ppPossible[1] = 0
+			ppPossible[2] = 0
+			phraseComplete = 1
+			upscalable = 1
 			updateSuccessful = 1
-			if intrans_vp4comp[2] == 0 or intrans_vp10comp[4] == 0 then
-			 	intrans_vp4comp[2] = 103
-			 	intrans_vp10comp[4] = 103
-				if intrans_vp4comp[0] == 101 then
-					upscalable = 1
-					phraseComplete = 1
-				else
-					upscalable = 0
-					phraseComplete = 0
-				end
-			end
-		end
-		#0:var vp0[] = [101,2]		# NP + intransV
-#0:var vp0[] = [101,2]		# NP + intransV
-#1:var vp4[] = [101, 2,103]	# NP + intransV + PP
-#2:var vp7[] = [101,17,10,2]	# NP + do + NEG + intransV
-#3:var vp10[] = [101,17,10,2,103]	# NP + do + NEG + intransV + PP
-#	emit checkUpdate [id{0}, phrasecore{1}, maxclass{2}, phrasestart{3}]
-	# sender earlier in the line
-	elseif event.args[1] == id then
-		j = 1
-		updateSuccessful = 0
-		if event.args[2] == 10 then
-			if intrans_vp7comp[2] == 0 or intrans_vp10comp[2] == 0 then
-				intrans_vp7comp[2] = 10
-				intrans_vp10comp[2] = 10
-				updateSuccessful = 1
-				upscalable = 0
-				phraseComplete = 0
-			end
-		elseif event.args[2] == 17 then
-			if (intrans_vp7comp[2] == 10 and intrans_vp7comp[1] == 0) or (intrans_vp10comp[2] == 0 and intrans_vp10comp[1] == 0) then
-				intrans_vp7comp[1] = 17
-				intrans_vp10comp[2] = 17
-				updateSuccessful = 1
-				upscalable = 0
-				phraseComplete = 0
-			end
-		elseif event.args[2] == 101 then
+		elseif event.args[2] == 14 and ppPossible[2] == 1 and pp2comp[1] == 0  then
+			pp2comp[1] = 1
+			ppPossible[0] = 0
+			ppPossible[1] = 0
+			phraseComplete = 0
+			upscalable = 0
+			updateSuccessful = 1		
+		elseif event.args[2] == 103 and ((ppPossible[1] == 1 and pp1comp[1] == 0) or (ppPossible[2] == 1 and pp2comp[1] == 14 and pp2comp[2] == 0)) then
+			ppPossible[0] = 0
+			pp1comp[1] = 103
+			pp2comp[2] = 103
+			phraseComplete = 1
+			upscalable = 1
 			updateSuccessful = 1
-			if intrans_vp0comp[0] == 0 then
-				phraseComplete = 1
-				updateSuccessful = 1
-				intrans_vp0comp[0] = 101
-			end
-			if intrans_vp4comp[0] == 0 then
-				intrans_vp4comp[0] = 101
-				updateSuccessful = 1
-				if intrans_vp4comp[2] != 0 then
-					phraseComplete = 1
-					upscalable = 1
-				end
-			end
-			if intrans_vp7comp[0] == 0 and intrans_vp7comp[1] == 17 and intrans_vp7comp[2] == 10 then
-				phraseComplete = 1
-				updateSuccessful = 1
-				upscalable = 0
-				intrans_vp7comp[0] = 101
-			end
-			if intrans_vp10comp[0] == 0 and intrans_vp7comp[1] == 17 and intrans_vp7comp[2] == 10 then
-				intrans_vp10comp[0] = 101
-				updateSuccessful = 1
-				if intrans_vp10comp[4] == 103 then
-					phraseComplete = 1
-					upscalable = 1
-				else
-					phraseComplete = 0
-					upscalable = 0
-				end
-			end
 		end
-	end
-	if bool == 1 or j == 1 then
 		if updateSuccessful == 1 then
 			higherPhrase = 1
-			if bool == 1 then
-				i = phraseend
-				phraseend = event.args[3]
-			elseif j == 1 then
-				i = phrasestart
-				phrasestart = event.args[3]
-			end
-			
+			phraseend = event.args[3]
 			lastPhraseAddition = event.args[0]
 			emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
 			if phraseComplete == 1 then
@@ -374,6 +325,7 @@ onevent checkUpdate
 			if phraseComplete == 1 then
 				upscalable = 1
 				maxclass = phrasetype
+				ppPossible = [0,1,1]
 			else
 				upscalable = 0
 			end
@@ -431,6 +383,7 @@ onevent block
 # if the phrasecore confirms the update, the robot updates its own data
 onevent successfulUpdateConfirmation
 	if event.args[0] == phrasecore and event.args[1] == id and phraseID != event.args[2] then
+		cu = 0
 		bl = 0
 		higherPhrase = 1
 		updateComplete = 1
@@ -455,26 +408,30 @@ onevent successfulUpdateConfirmation
 #	emit updateDeclination [senderid, targetid]
 onevent updateDeclination
 	if event.args[0] == phrasecore and event.args[1] == id then
+		cu = 0
 		phrasecore = 0
 		updateComplete = 1
 	end
 	
 #----------------------------------------------------------------R E S E T T I N G-----------------------------------------------------------------------------------------------------
 sub reset
- 	intrans_vp0comp = [0,class]
- 	intrans_vp4comp = [0,class,0]
- 	intrans_vp7comp = [0,0,0,class]
- 	intrans_vp10comp = [0,0,0,class,0]
+	ppPossible = [1,0,0]	
+	ppLengths  = [2,2,3]
+	pp0comp = [class,0]
+	pp1comp = [103,0]
+	pp2comp = [103,0,0]
+	consPossible = [1,1,0,0]
 	constructionComplete = 0
 	phraseComplete = 0
 	updateSuccessful = 0
+	cu = 0
 	maxclass = class
 	phraseID = 0
 	oldpid = 0
 	oldid = 0
 	highestpid = 0
 	pid = 0
-	phrasetype = 102		# type of the phrase corresponding to the phraseID	
+	phrasetype = 103		# type of the phrase corresponding to the phraseID	
 	oldphraseID = 0
 	upscalable = 0
 	phrasestart = 0
