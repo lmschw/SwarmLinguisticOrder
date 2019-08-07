@@ -1,13 +1,13 @@
-# CHASES
-# VERBS: TRANSITIVE
+# PUTS
+# VERBS: TRANSITIVE2
 
 #----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
 
 #---------------------------------------------------------------------------variables--------------------------------------------------------------------------------------------------
 # word-specific values
-var value[] = [67,72,65,83,69,83] 			# the ASCII code every letter of the word as an array - 'chases'
-var class = 3								# category - transitive verb  in this case
+var value[] = [80,85,84,83] 			# the ASCII code every letter of the word as an array - 'puts'
+var class = 16								# category - transitive verb  in this case
 var coreclass = 1			# if the class is the core of a phrase
 
 # grammaticality judgements
@@ -47,10 +47,10 @@ var i = 0
 var j = 0
 
 # completion check variables: be can be used as a transitive or intransitive verb in some circumstances
-var trans_vp1comp[] = [0,class,0]
-var trans_vp5comp[] = [0,class,0,0]
-var trans_vp8comp[] = [0,0,0,class,0]
-var trans_vp11comp[] = [0,0,0,class,0,0]
+var trans_vp2comp[] = [0,class,0,0]
+var trans_vp6comp[] = [0,class,0,0,0]
+var trans_vp9comp[] = [0,0,0,class,0,0]
+var trans_vp12comp[] = [0,0,0,class,0,0,0]
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------functions----------------------------------------------------------------------------------------------------
@@ -257,15 +257,16 @@ onevent searchPrevCompletion
 #----------------------------------------------------------------UPDATES----------------------------------------------------------------------------------------------------------------
 # if a robot sends back a message, the robot checks if the new value should be included in the phrase
 # completion check variables: be can be used as a transitive or intransitive verb in some circumstances
-#var trans_vp1comp[] = [0,class,0]
-#var trans_vp5comp[] = [0,class,0,0]
-#var trans_vp8comp[] = [0,0,0,class,0]
-#var trans_vp11comp[] = [0,0,0,class,0,0]
 
-#0:var vp1[] = [101,3,101]	# NP + transV + NP
-#1:var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
-#2:var vp8[] = [101,17,10,3,101]	# NP + do + NEG + transV + NP
-#3:var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
+#var trans_vp2comp[] = [0,class,0,0]
+#var trans_vp6comp[] = [0,class,0,0,0]
+#var trans_vp9comp[] = [0,0,0,class,0,0]
+#var trans_vp12comp[] = [0,0,0,class,0,0,0]
+#
+#var vp2[] = [101,16,101,101]	# NP + transV2 + NP + NP
+#var vp6[] = [101,16,101,101,103]	# NP + transV2 + NP + NP + PP
+#var vp9[] = [101,17,10,16,101,101]	# NP + do + NEG + transV2 + NP + NP
+#var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
 #	emit checkUpdate [id{0}, phrasecore{1}, maxclass{2}, phraseend{3}]
 onevent checkUpdate
 	bool = 0
@@ -274,38 +275,43 @@ onevent checkUpdate
 	if event.args[0] == phraseend + 1 then #if1
 		bool = 1
 		updateSuccessful = 0
-		#0:var vp1[] = [101,3,101]	# NP + transV + NP
-		#1:var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
-		#2:var vp8[] = [101,17,10,3,101]	# NP + do + NEG + transV + NP
-		#3:var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
+		upscalable = 0
+		#var vp2[] = [101,16,101,101]	# NP + transV2 + NP + NP
+		#var vp6[] = [101,16,101,101,103]	# NP + transV2 + NP + NP + PP
+		#var vp9[] = [101,17,10,16,101,101]	# NP + do + NEG + transV2 + NP + NP
+		#var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
 		if event.args[2] == 101 then	# if2
-			if (trans_vp1comp[2] == 0) or (trans_vp5comp[2] == 0) or (trans_vp8comp[4] == 0) or (trans_vp11comp[4] == 0) then	#if3
+			if (trans_vp2comp[2] == 0) or (trans_vp6comp[2] == 0) or (trans_vp9comp[4] == 0) or (trans_vp12comp[4] == 0) then	#if3
 				updateSuccessful = 1
-				trans_vp1comp[2] = 101
-				trans_vp5comp[2] = 101
-				trans_vp8comp[4] = 101
-				trans_vp11comp[4] = 101
-				if (trans_vp1comp[0] == 101) or (trans_vp8comp[0] == 101 and trans_vp8comp[1] == 17 and trans_vp8comp[2] == 10) then	#if4
-					upscalable = 0
+				trans_vp2comp[2] = 101
+				trans_vp6comp[2] = 101
+				trans_vp9comp[4] = 101
+				trans_vp12comp[4] = 101
+				phraseComplete = 0
+			elseif (trans_vp2comp[2] == 101 and trans_vp2comp[3] == 0) or (trans_vp6comp[2] == 101 and trans_vp2comp[3] == 0) or (trans_vp9comp[4] == 101 and trans_vp9comp[5] == 0) or (trans_vp12comp[4] == 101 and trans_vp12comp[5] == 0) then
+				updateSuccessful = 1
+				trans_vp2comp[3] = 101
+				trans_vp6comp[3] = 101
+				trans_vp9comp[5] = 101
+				trans_vp12comp[5] = 101
+				if (trans_vp2comp[0] == 101) or (trans_vp9comp[0] == 101 and trans_vp9comp[1] == 17 and trans_vp9comp[2] == 10) then	#if4
 					phraseComplete = 1
 				else
-					upscalable = 0
 					phraseComplete = 0
 				end	#end if4
 			end	#end if3
-		#1:var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
-		#3:var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
+		#var vp6[] = [101,16,101,101,103]	# NP + transV2 + NP + NP + PP
+		#var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
 		elseif event.args[2] == 103 then
-			if (trans_vp5comp[2] == 101 and trans_vp5comp[3] == 0) or (trans_vp11comp[4] == 101 and trans_vp11comp[5] == 0) then	#if5
-				trans_vp5comp[3] = 103
-				trans_vp11comp[4] = 103
+			if (trans_vp6comp[2] == 101 and trans_vp6comp[3] == 101 and trans_vp6comp[4] == 0) or (trans_vp12comp[4] == 101 and trans_vp12comp[5] == 101 and trans_vp12comp[6] == 0) then	#if5
+				trans_vp6comp[4] = 103
+				trans_vp12comp[5] = 103
 				updateSuccessful = 1
-				if (trans_vp5comp[0] == 101) or (trans_vp11comp[0] == 101 and trans_vp11comp[1] == 17 and trans_vp11comp[2] == 10) then	#if6
+				if (trans_vp6comp[0] == 101) or (trans_vp12comp[0] == 101 and trans_vp12comp[1] == 17 and trans_vp12comp[2] == 10) then	#if6
 					phraseComplete = 1
 					upscalable = 1
 				else
 					phraseComplete = 0
-					upscalable = 0
 				end	#end if6
 			end	#end if5
 		
@@ -328,66 +334,62 @@ onevent checkUpdate
 	elseif event.args[1] == id then
 		j = 1
 		updateSuccessful = 0
-		#var vp1[] = [101,3,101]	# NP + transV + NP
-		#var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
-		#var vp8[] = [101,17,10,3,101]	# NP + do + NEG + transV + NP
-		#var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
+		#var vp2[] = [101,16,101,101]	# NP + transV2 + NP + NP
+		#var vp6[] = [101,16,101,101,103]	# NP + transV2 + NP + NP + PP
+		#var vp9[] = [101,17,10,16,101,101]	# NP + do + NEG + transV2 + NP + NP
+		#var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
 		if event.args[2] == 101 then	#if7
-			trans_vp1comp[0] = 101
-			trans_vp5comp[0] = 101
+			trans_vp2comp[0] = 101
+			trans_vp6comp[0] = 101
 			updateSuccessful = 1
-			if trans_vp1comp[2] == 101 then	#if9
+			if trans_vp2comp[2] == 101 and trans_vp2comp[3] == 101 then	#if9
 				phraseComplete = 1
 			else
 				phraseComplete = 0
 			end	#end if9
-			if trans_vp5comp[2] == 101 and trans_vp5comp[3] == 103 then	#if11
+			if trans_vp6comp[2] == 101 and trans_vp6comp[3] == 101 and trans_vp6comp[4] == 103 then	#if11
 				phraseComplete = 1
 				upscalable = 1
 			else
 				phraseComplete = 0
-				upscalable = 0
 			end	#end if11
-			if trans_vp8comp[1] == 17 and trans_vp8comp[2] == 10 then	#if12
-				trans_vp8comp[0] = 101
+			if trans_vp9comp[1] == 17 and trans_vp9comp[2] == 10 then	#if12
+				trans_vp9comp[0] = 101
 				updateSuccessful = 1
-				if trans_vp8comp[4] == 101 then	#if13
+				if trans_vp9comp[4] == 101  and trans_vp9comp[5] == 101 then	#if13
 					phraseComplete = 1
 				else
 					phraseComplete = 0
 				end	#end if13
 			end	#end if12
-			if trans_vp11comp[1] == 17 and trans_vp11comp[2] == 10 then	#if14
-				trans_vp11comp[0] = 101
+			if trans_vp12comp[1] == 17 and trans_vp12comp[2] == 10 then	#if14
+				trans_vp12comp[0] = 101
 				updateSuccessful = 1
-				if trans_vp11comp[4] == 101 and trans_vp11comp[5] == 103 then	#if15
+				if trans_vp12comp[4] == 101 and trans_vp12comp[5] == 101 and trans_vp12comp[6] == 103 then	#if15
 					phraseComplete = 1
 					upscalable = 1
 				else
 					phraseComplete = 0
-					upscalable = 0
 				end	#end if15
 			end	#end if14
 		end	#end if7
-		#var vp8[] = [101,17,10,3,101]	# NP + do + NEG + transV + NP
-		#var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
+		#var vp9[] = [101,17,10,16,101,101]	# NP + do + NEG + transV2 + NP + NP
+		#var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
 		elseif event.args[2] == 17 then
-			if ( trans_vp8comp[2] == 10 and trans_vp8comp[1] == 0) or (trans_vp11comp[2] == 10 and trans_vp11comp[1] == 0) then	#if16
+			if ( trans_vp9comp[2] == 10 and trans_vp9comp[1] == 0) or (trans_vp12comp[2] == 10 and trans_vp12comp[1] == 0) then	#if16
 				updateSuccessful = 1
-				trans_vp8comp[1] = 17
-				trans_vp11comp[1] = 17
+				trans_vp9comp[1] = 17
+				trans_vp12comp[1] = 17
 				phraseComplete = 0
-				upscalable = 0
 			end	#end if16
-		#var vp8[] = [101,17,10,3,101]	# NP + do + NEG + transV + NP
-		#var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
+		#var vp9[] = [101,17,10,16,101,101]	# NP + do + NEG + transV2 + NP + NP
+		#var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
 		elseif event.args[2] == 10 then
-			if (trans_vp8comp[2] == 0) or (trans_vp11comp[2] ==  0) then	#if17
+			if (trans_vp9comp[2] == 0) or (trans_vp12comp[2] ==  0) then	#if17
 				updateSuccessful = 1
-				trans_vp8comp[2] = 10
-				trans_vp11comp[2] = 10
+				trans_vp9comp[2] = 10
+				trans_vp12comp[2] = 10
 				phraseComplete = 0
-				upscalable = 0
 			end	#end if17
 		end	#end if2
 	end	#end if1
@@ -499,10 +501,10 @@ onevent updateDeclination
 #----------------------------------------------------------------R E S E T T I N G-----------------------------------------------------------------------------------------------------
 sub reset
 # completion check variables: be can be used as a transitive or intransitive verb in some circumstances
-	trans_vp1comp = [0,class,0]
-	trans_vp5comp = [0,class,0,0]
- 	trans_vp8comp = [0,0,0,class,0]
-	trans_vp11comp = [0,0,0,class,0,0]
+	trans_vp2comp = [0,class,0,0]
+	trans_vp6comp = [0,class,0,0,0]
+ 	trans_vp9comp = [0,0,0,class,0,0]
+	trans_vp12comp = [0,0,0,class,0,0,0]
 	constructionComplete = 0
 	phraseComplete = 0
 	updateSuccessful = 0
