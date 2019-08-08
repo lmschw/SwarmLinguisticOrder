@@ -1,0 +1,162 @@
+var speed = 50
+var maxdistance = 3000
+
+var counter = 0
+var countermax = 10
+var backprotocol = 0
+
+var following = 0
+var stopped = 0
+
+var id = 0	# the robot's ID within the line
+
+
+motor.left.target = speed
+motor.right.target = speed
+
+call prox.comm.enable(1)
+
+onevent prox
+
+	if id > 0  then
+		following = 1
+	else
+		following = 0
+	end
+	if prox.horizontal[0] >1000 or prox.horizontal[1] >1000 or prox.horizontal[2] >1000 or prox.horizontal[3] > 1000 or prox.horizontal[4] >1000 or  prox.horizontal[5] >1000 or prox.horizontal[6] >1000 then
+		call prox.comm.enable(1)
+		prox.comm.tx = 32767
+	else
+	#	call prox.comm.enable(0)
+	end
+#//////////////////////////////////////////////////////////////////////////communication
+	if stopped == 1 then
+			# if no neighbour behind but neighbour in front, ID = 1
+	if id == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+		id = 1
+		# send out the robot's ID
+		prox.comm.tx = id
+	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
+	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
+		id = 1
+		emit recountID
+	end
+	end
+	
+		if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
+		id = 0
+	end
+	
+		# colour scheme for testing purposes and 3 robots only
+	if id == 1 then
+		call leds.top(32,0,0)
+	elseif id == 2 then
+		call leds.top(0,32,0)
+	elseif id == 3 then
+		call leds.top(0,0,32)
+	end
+	
+	#////////////////////////////////////////////////////////////movement
+	if stopped != 1 and following == 1 then
+		call leds.top(32,10,0)
+		if prox.horizontal[1] < prox.horizontal[3] + 20 and prox.horizontal[1] > prox.horizontal[3] - 20 then
+			motor.left.target = speed
+			motor.right.target = speed
+		elseif prox.horizontal[1] < prox.horizontal[3] then
+			motor.left.target = 0
+			motor.right.target = speed
+		else
+			motor.left.target = speed
+			motor.right.target = 0
+		end
+	elseif stopped != 1 then
+		if backprotocol == 0 then
+			if prox.horizontal[1] > maxdistance and prox.horizontal[3]> maxdistance then
+				backprotocol = 1
+				motor.left.target = -speed
+				motor.right.target = -speed
+			elseif prox.horizontal[2] > maxdistance or prox.horizontal[1] > maxdistance then
+				motor.left.target = speed + 100
+				motor.right.target = 0
+				call leds.top(32,0,0)
+			elseif  prox.horizontal[3] > maxdistance then
+				motor.left.target = 0
+				motor.right.target = speed + 100
+				call leds.top(32,32,0)
+			elseif prox.horizontal[0] > maxdistance then
+				motor.left.target = speed
+				motor.right.target = 0
+				call leds.top(32,0,32)
+			elseif  prox.horizontal[4] > maxdistance then
+				motor.left.target = 0
+				motor.right.target = speed
+				call leds.top(0,32,0)
+			else
+				motor.left.target = speed
+				motor.right.target = speed
+				call leds.top(0,32,32)
+			end
+		else
+			call leds.top(0,0,32)
+			counter++
+			if counter < countermax and prox.horizontal[5] < 3300 and prox.horizontal[6] < 3300 then
+				motor.left.target = -speed
+				motor.right.target = -speed
+			elseif counter >= countermax and counter < (countermax +5) then
+				motor.left.target = speed
+				motor.right.target = 0
+			elseif counter >=  (countermax + 5) then
+				motor.left.target = speed
+				motor.right.target = speed
+				backprotocol = 0
+				counter = 0
+			end
+		end
+	end
+
+	
+onevent prox.comm
+	
+	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
+	if id == 0 and prox.comm.rx != 0 and ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
+		id = prox.comm.rx + 1
+		motor.left.target = 0
+		motor.right.target = 0
+		stopped = 1
+		timer.period[0] = 2000
+		# send out the robot's ID
+		prox.comm.tx = id
+		following = 1
+	# if the robot has an ID but receives an unexpected ID, the IDs need to be re-established as it is likely that the order has changed
+	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) and prox.comm.rx != 0 then
+		if id != 1 or ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 and prox.horizontal[6] < -10)) then
+			id = 0
+			following = 0
+		end
+		prox.comm.tx = id
+		emit recountID
+	else
+		prox.comm.tx = -1
+	end
+	
+onevent timer0
+	stopped = 0
+	timer.period[0] = 0
+
+
+
+	
+# set ID back to 0 and pass the message on
+onevent recountID
+	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+		if id != 1 then
+			id = 1
+			# send out the robot's ID
+			prox.comm.tx = id
+		end
+
+	elseif  id > 1 then
+		id = 0
+		# send out the robot's ID
+		prox.comm.tx = id
+	end
