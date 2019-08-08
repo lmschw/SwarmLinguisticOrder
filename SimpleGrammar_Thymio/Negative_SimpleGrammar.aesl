@@ -7,7 +7,7 @@
 #---------------------------------------------------------------------------variables--------------------------------------------------------------------------------------------------
 # word-specific values
 var value[] = [78, 79, 84] 			# the ASCII code every letter of the word as an array - 'not'
-var class = 9								# category - negative in this case
+var class = 10								# category - negative in this case
 var coreclass = 0			# if the class is the core of a phrase
 
 # grammaticality judgements
@@ -87,12 +87,12 @@ onevent prox
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
 	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
 		id = 1
-		callsub reset
 		emit recountID
+		callsub reset
 	end
 	
 	if pid == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
-		if class != 1 and class != 10 and class != 12 and class != 14 then
+		if coreclass != 1 then
 			pid = 1
 			highestpid = 1
 			emit neighbour_value [id, pid]
@@ -159,8 +159,8 @@ onevent prox
 		id = 0
 		phraseID = 0
 		upscalable = 0
-		callsub reset
 		call leds.top(32,32,32)
+		callsub reset
 	elseif constructionComplete == 1 then
 		call leds.top(0,32,0)
 	elseif phraseComplete == 1 then
@@ -188,14 +188,13 @@ onevent prox.comm
 			id = 0
 		end
 		prox.comm.tx = id
-		callsub reset
 		emit recountID
+		callsub reset
 	end
 	
 # set ID back to 0 and pass the message on
 onevent recountID
 	pid = 0
-	callsub reset
 	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		if id != 1 then
 			id = 1
@@ -208,7 +207,7 @@ onevent recountID
 		# send out the robot's ID
 		prox.comm.tx = id
 	end
-
+	callsub reset
 
 #-------------------------------------------------------------------------TOP LAYER COMMUNICATION--------------------------------------------------------------------------------
 # TOP LAYER COMMUNICATION
@@ -217,7 +216,7 @@ onevent recountID
 # neighbour_value [id{0}, maxphraseid{1}]
 onevent neighbour_value
 	if id == event.args[0]+1 then
-		if class != 1 and class != 10 and class != 12 and class != 14 then
+		if coreclass != 0 then
 			pid = event.args[1] + 1
 			highestpid = pid
 			emit neighbour_value [id, pid]
@@ -346,7 +345,7 @@ onevent updateDeclination
 sub reset
 	consPossible = [1,1,0,0]
 	constructionComplete = 0
-	phraseComplete = 1
+	phraseComplete = 0
 	updateSuccessful = 0
 	cu = 0
 	maxclass = class

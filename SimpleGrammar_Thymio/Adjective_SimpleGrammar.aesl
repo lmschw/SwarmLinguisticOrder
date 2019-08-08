@@ -121,8 +121,8 @@ onevent prox
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
 	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
 		id = 1
-		callsub reset
 		emit recountID
+		callsub reset
 	end
 	
 	
@@ -195,8 +195,7 @@ onevent prox
 		id = 0
 		pid = 0
 		upscalable = 0
-				call leds.top(32,32,32)
-
+		call leds.top(32,32,32)
 		callsub reset
 	elseif constructionComplete == 1 then
 		call leds.top(0,32,0)
@@ -225,14 +224,13 @@ onevent prox.comm
 			id = 0
 		end
 		prox.comm.tx = id
-		callsub reset
 		emit recountID
+		callsub reset
 	end
 	
 # set ID back to 0 and pass the message on
 onevent recountID
 	pid = 0
-	callsub reset
 	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		if id != 1 then
 			id = 1
@@ -245,6 +243,7 @@ onevent recountID
 		# send out the robot's ID
 		prox.comm.tx = id
 	end
+	callsub reset
 
 
 #-------------------------------------------------------------------------TOP LAYER COMMUNICATION--------------------------------------------------------------------------------
@@ -405,6 +404,7 @@ onevent successfulUpdateConfirmation
 	if event.args[0] == phrasecore and event.args[1] == id  and phraseID != event.args[2] then
 		cu = 0
 		bl = 0
+		call sound.system(7)
 		higherPhrase = 1
 		updateComplete = 1
 		oldphraseID = phraseID

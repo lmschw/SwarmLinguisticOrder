@@ -108,12 +108,12 @@ onevent prox
 	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
 	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
 		id = 1
-		callsub reset
 		emit recountID
+		callsub reset
 	end
 	
 	if pid == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
-		if class != 1 and class != 10 and class != 12 and class != 14 then
+		if coreclass == 1 then
 			pid = 1
 			highestpid = 1
 			emit neighbour_value [id, pid]
@@ -130,9 +130,13 @@ onevent prox
 		if coreclass == 1 then
 			phrasestart = id
 			phraseend = id
+			phraseComplete = 0
+			upscalable = 0
 		else
 			phrasestart = -1
 			phraseend = -1
+			phraseComplete = 0
+			upscalable = 0
 		end
 	end
 		
@@ -186,8 +190,8 @@ onevent prox
 		id = 0
 		phraseID = 0
 		upscalable = 0
-		callsub reset
 		call leds.top(32,32,32)
+		callsub reset
 	elseif constructionComplete == 1 then
 		call leds.top(0,32,0)
 	elseif phraseComplete == 1 then
@@ -215,14 +219,13 @@ onevent prox.comm
 			id = 0
 		end
 		prox.comm.tx = id
-		callsub reset
 		emit recountID
+		callsub reset
 	end
 	
 # set ID back to 0 and pass the message on
 onevent recountID
 	pid = 0
-	callsub reset
 	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		if id != 1 then
 			id = 1
@@ -235,7 +238,7 @@ onevent recountID
 		# send out the robot's ID
 		prox.comm.tx = id
 	end
-
+	callsub reset
 
 #-------------------------------------------------------------------------TOP LAYER COMMUNICATION--------------------------------------------------------------------------------
 # TOP LAYER COMMUNICATION
@@ -281,7 +284,6 @@ onevent searchNextCompletion
 onevent searchPrevCompletion
 	if  phraseID != event.args[1] and maxclass == 101 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  102)  and event.args[2] == id+1 then
 		call sound.system(5)
-
 		cu = 1
 		bl = 0
 		next = 0

@@ -110,7 +110,8 @@ onevent prox
 	
 	oldid = id
 	oldpid = pid
-	#/////////////////////////////////////////////////// bottom layer communication
+
+	#//////////////////////////////////////////////////////bottom layer communication
 	# if no neighbour behind but neighbour in front, ID = 1
 	if id == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		id = 1
@@ -120,6 +121,7 @@ onevent prox
 	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
 		id = 1
 		emit recountID
+		callsub reset
 	end
 	
 	#///////////////////////////////////////////////////top layer communication
@@ -138,8 +140,7 @@ onevent prox
 	if oldid != id and oldpid != pid then
 		callsub reset
 	end
-		
-	#//////////////////////////////////////////////////
+	#///////////////////////////////////////////////////////
 	if higherPhrase != 1  then
 		phraseID = pid
 		if coreclass == 1 then
@@ -188,8 +189,8 @@ onevent prox
 		id = 0
 		phraseID = 0
 		upscalable = 1
-		callsub reset
 		call leds.top(32,32,32)
+		callsub reset
 	elseif constructionComplete == 1 then
 		call leds.top(0,32,0)
 	elseif phraseComplete == 1 then
@@ -205,6 +206,7 @@ onevent prox
 #-----------------------------------------------------------------------BOTTOM LAYER COMMUNICATION------------------------------------------------------------------------
 # BOTTOM LAYER COMMUNICATION
 
+
 onevent prox.comm
 	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
 	if  id == 0 and prox.comm.rx != 0 and ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
@@ -218,11 +220,12 @@ onevent prox.comm
 		end
 		prox.comm.tx = id
 		emit recountID
+		callsub reset
 	end
 	
 # set ID back to 0 and pass the message on
 onevent recountID
-
+	pid = 0
 	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		if id != 1 then
 			id = 1
@@ -235,10 +238,12 @@ onevent recountID
 		# send out the robot's ID
 		prox.comm.tx = id
 	end
+	callsub reset
 
 
 #-------------------------------------------------------------------------TOP LAYER COMMUNICATION--------------------------------------------------------------------------------
 # TOP LAYER COMMUNICATION
+
 
 # neighbour_value [id{0}, maxphraseid{1}]
 onevent neighbour_value
@@ -246,13 +251,14 @@ onevent neighbour_value
 		if class != 1 and class != 10 and class != 12 and class != 14 then
 			pid = event.args[1] + 1
 			highestpid = pid
-			emit neighbour_value [id, pid]
+			#emit neighbour_value [id, pid]
 		else
 			pid = -2
 			highestpid = event.args[1]
-			emit neighbour_value [id, highestpid]
+			#emit neighbour_value [id, highestpid]
 		end	
 	end
+	
 	
 #-----------------------------------------------------------------G R A M M A T I C A L I T Y    J U D G E M E N T S----------------------------------------------------------------
 #-----------------------------------------------------------------SEARCH EVENTS------------------------------------------------------------------------------------------------------
