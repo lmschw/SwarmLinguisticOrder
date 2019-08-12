@@ -29,7 +29,6 @@ var higherPhrase = 0	# does the robot belong to another phrase
 var bl = 0			# keep sending out the block event?
 var lastPhraseAddition = 0	# ID of the core of the last phrase added
 
-
 # storage variables
 var consPossible[4] = [1,1,0,0]
 
@@ -111,8 +110,8 @@ onevent prox
 		
 	#TODO what I need
 	if id != 0 and phraseID != 0 and (maxclass == class or maxclass == 102) then
-			emit searchNextCompletion [id, phraseID, phraseend, 	phrasetype]
-			emit searchPrevCompletion [id, phraseID, phrasestart, phrasetype]
+		emit searchNextCompletion [id, phraseID, phraseend, 	phrasetype]
+		emit searchPrevCompletion [id, phraseID, phrasestart, phrasetype]
 	end
 	#TODO end
 	
@@ -308,7 +307,7 @@ onevent checkUpdate
 					upscalable = 0
 				end	#end if6
 			end	#end if5
-		
+		end
 	## completion check variables: be can be used as a transitive or intransitive verb in some circumstances
 	#var trans_vp1comp[] = [0,class,0]
 	#var trans_vp5comp[] = [0,class,0,0]
@@ -389,7 +388,6 @@ onevent checkUpdate
 				phraseComplete = 0
 				upscalable = 0
 			end	#end if17
-		end	#end if2
 	end	#end if1
 	if bool == 1 or j == 1 then	#if18
 		if updateSuccessful == 1 then	#if19
