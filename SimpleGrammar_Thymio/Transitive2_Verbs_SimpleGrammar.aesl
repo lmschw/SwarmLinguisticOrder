@@ -152,7 +152,6 @@ onevent prox
 		phraseComplete = 0
 	end
 	
-	
 	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
 		upscalable = 1
 	end
@@ -314,7 +313,7 @@ onevent checkUpdate
 					phraseComplete = 0
 				end	#end if6
 			end	#end if5
-		
+		end #end if2
 	## completion check variables: be can be used as a transitive or intransitive verb in some circumstances
 	#var trans_vp1comp[] = [0,class,0]
 	#var trans_vp5comp[] = [0,class,0,0]
@@ -331,14 +330,14 @@ onevent checkUpdate
 	#	emit checkUpdate [id{0}, phrasecore{1}, maxclass{2}, phrasestart{3}]
 
 	# sender earlier in the line
-	elseif event.args[1] == id then
+	elseif event.args[1] == id and event.args[3] < id then
 		j = 1
 		updateSuccessful = 0
 		#var vp2[] = [101,16,101,101]	# NP + transV2 + NP + NP
 		#var vp6[] = [101,16,101,101,103]	# NP + transV2 + NP + NP + PP
 		#var vp9[] = [101,17,10,16,101,101]	# NP + do + NEG + transV2 + NP + NP
 		#var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
-		if event.args[2] == 101 then	#if7
+		if event.args[2] == 101 and (trans_vp2comp[0] == 0 or trans_vp6comp[0] == 0) then	#if7
 			trans_vp2comp[0] = 101
 			trans_vp6comp[0] = 101
 			updateSuccessful = 1
@@ -391,16 +390,13 @@ onevent checkUpdate
 				trans_vp12comp[2] = 10
 				phraseComplete = 0
 			end	#end if17
-		end	#end if2
 	end	#end if1
 	if bool == 1 or j == 1 then	#if18
 		if updateSuccessful == 1 then	#if19
 			higherPhrase = 1
 			if bool == 1 then	#if20
-				i = phraseend
 				phraseend = event.args[3]
 			elseif j == 1 then
-				i = phrasestart
 				phrasestart = event.args[3]
 			end	#end if20
 			
@@ -494,7 +490,6 @@ onevent successfulUpdateConfirmation
 #	emit updateDeclination [senderid, targetid]
 onevent updateDeclination
 	if event.args[0] == phrasecore and event.args[1] == id then
-		phrasecore = 0
 		updateComplete = 1
 	end
 	
@@ -519,7 +514,6 @@ sub reset
 	upscalable = 0
 	phrasestart = 0
 	phraseend = 0
-	phrasecore = 0
 	higherPhrase = 0
 	updateComplete = 1
 	bl = 0
