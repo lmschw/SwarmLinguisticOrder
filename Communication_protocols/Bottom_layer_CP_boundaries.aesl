@@ -1,30 +1,15 @@
-# variables
+# Communication protocol using +/- 10 as sensor reading boundaries. Only concerns ID establishment in a line of robots.
+
+#------------------------------------------------------------------------------------------INITIALIZATION----------------------------------------------------------------------------
+
 var id = 0	# the robot's ID within the line
 
 # communication is enabled
 call prox.comm.enable(1)
 
+#------------------------------------------------------------------------------------------PROX----------------------------------------------------------------------------------------
 onevent prox
-	# call the subroutine to establish the IDs
-	callsub establishIDs
-		# if there are no neighbours, set colour to white
-	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
-		id = 0
-		call leds.top(32,32,32)
-	end
-	
-
-	# colour scheme for testing purposes and 3 robots only
-	if id == 1 then
-		call leds.top(32,0,0)
-	elseif id == 2 then
-		call leds.top(0,32,0)
-	elseif id == 3 then
-		call leds.top(0,0,32)
-	end
-
-# BOTTOM LAYER COMMUNICATION
-sub establishIDs
+	#////////////////////////////////////////////////////////////////////////establish IDs
 	# if no neighbour behind but neighbour in front, ID = 1
 	if id == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
 		id = 1
@@ -35,8 +20,25 @@ sub establishIDs
 		id = 1
 		emit recountID
 	end
+	
+	#////////////////////////////////////////////////////////////////////////reset if no neighbours
+	# if the robot does not have any neighbours, its ID is reset to 0.
+	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
+		id = 0
+		call leds.top(32,32,32)
+	end
+	
+	#///////////////////////////////////////////////////////////////////////testing colour scheme
+	# colour scheme for testing purposes and 3 robots only
+	if id == 1 then
+		call leds.top(32,0,0)
+	elseif id == 2 then
+		call leds.top(0,32,0)
+	elseif id == 3 then
+		call leds.top(0,0,32)
+	end
 
-
+#--------------------------------------------------------------------------------PROX.COMM-------------------------------------------------------------------------------------
 onevent prox.comm
 	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
 	if  id == 0 and prox.comm.rx != 0 and ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
@@ -51,7 +53,8 @@ onevent prox.comm
 		prox.comm.tx = id
 		emit recountID
 	end
-	
+
+#-------------------------------------------------------------------------------RECOUNTID--------------------------------------------------------------------------------------	
 # set ID back to 0 and pass the message on
 onevent recountID
 	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
@@ -60,7 +63,6 @@ onevent recountID
 			# send out the robot's ID
 			prox.comm.tx = id
 		end
-
 	elseif  id > 1 then
 		id = 0
 		# send out the robot's ID
