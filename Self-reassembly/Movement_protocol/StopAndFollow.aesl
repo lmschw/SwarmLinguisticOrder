@@ -1,45 +1,39 @@
-var speed = 100
-var following = 1
+var speed = 50
 var maxdistance = 3000
 
 var counter = 0
 var countermax = 10
 var backprotocol = 0
 
-var leftsum = 0
-var rightsum = 0
+var following = 0
+var stopped = 0
+
+var id = 5
 
 motor.left.target = speed
 motor.right.target = speed
 
 onevent prox
-	if following == 1 then
-		leftsum = prox.horizontal[0] + prox.horizontal[1]
-		rightsum = prox.horizontal[3] + prox.horizontal[4]
-		if leftsum <10 and leftsum > 10 and rightsum < 10 and rightsum > 10 then
-			following = 0
-		elseif prox.horizontal[2] > 3300 then
-			motor.left.target = -speed
-			motor.right.target = -speed
-		elseif (leftsum < rightsum +100 and leftsum > rightsum - 100) then
+	if prox.horizontal[0] < maxdistance and prox.horizontal[1] < maxdistance and prox.horizontal[2] < maxdistance and prox.horizontal[3] < maxdistance and prox.horizontal[4] < maxdistance and prox.horizontal[5] < maxdistance and prox.horizontal[6] < maxdistance then
+		following = 0
+		call prox.comm.enable(0)
+	else
+		call prox.comm.enable(1)
+		prox.comm.tx = id
+	end
+	if stopped != 1 and following == 1 then
+		call leds.top(32,10,0)
+		if prox.horizontal[1] < prox.horizontal[3] + 20 and prox.horizontal[1] > prox.horizontal[3] - 20 then
 			motor.left.target = speed
 			motor.right.target = speed
-		elseif leftsum < rightsum then
-			motor.right.target = 0
-			if prox.horizontal[0] < prox.horizontal[1] then
-				motor.left.target = speed
-			else
-				motor.left.target = speed * 3/4
-			end
-		else
+		elseif prox.horizontal[1] < prox.horizontal[3] then
 			motor.left.target = 0
-			if prox.horizontal[4] < prox.horizontal[3] then
-				motor.right.target = speed
-			else
-				motor.right.target = speed * 3/4
-			end
+			motor.right.target = speed
+		else
+			motor.left.target = speed
+			motor.right.target = 0
 		end
-	else
+	elseif stopped != 1 then
 		if backprotocol == 0 then
 			if prox.horizontal[1] > maxdistance and prox.horizontal[3]> maxdistance then
 				backprotocol = 1
@@ -84,3 +78,18 @@ onevent prox
 		end
 	end
 
+	
+onevent prox.comm
+	if prox.comm.rx != 0 and following != 1 then
+		motor.left.target = 0
+		motor.right.target = 0
+		stopped = 1
+		timer.period[0] = 200
+		if prox.comm.rx == id +1 then
+			following = 1
+		end
+	end
+	
+onevent timer0
+	stopped = 0
+	timer.period[0] = 0

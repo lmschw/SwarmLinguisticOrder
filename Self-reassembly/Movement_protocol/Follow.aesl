@@ -1,0 +1,108 @@
+var speed = 100
+var following = 1
+var followed = 0
+var maxdistance = 3000
+
+var counter = 0
+var countermax = 10
+var backprotocol = 0
+
+var leftsum = 0
+var rightsum = 0
+
+motor.left.target = speed
+motor.right.target = speed
+
+onevent prox
+	# if the robot is following another, it is entirely guided by its relative position to that robot. Unfortunately, it cannot distinguish between walls and the leader, so it may get shaken off at narrow turns.
+	if following == 1 then
+		leftsum = prox.horizontal[0] + prox.horizontal[1]
+		rightsum = prox.horizontal[3] + prox.horizontal[4]
+		# if the robot cannot sense the robot in front anymore, it will resume normal walking behaviour
+		if leftsum <10 and leftsum > 10 and rightsum < 10 and rightsum > 10 then
+			following = 0
+		# if the robot is too close to its leader, it walks backwards. This is done in case the leader has to back up
+		elseif prox.horizontal[2] > 3300 then
+			motor.left.target = -speed
+			motor.right.target = -speed
+		# if the left side sensors measure approximately the same values as the right side sensors, it can be assumed that the robot is straight behind its leader
+		elseif (leftsum < rightsum +100 and leftsum > rightsum - 100) then
+			motor.left.target = speed
+			motor.right.target = speed
+		# turn left if the robot's right side is closer to the leader
+		elseif leftsum < rightsum then
+			motor.right.target = 0
+			# turn more when the outermost sensor value is higher
+			if prox.horizontal[0] < prox.horizontal[1] then
+				motor.left.target = speed + 1/4 * speed
+			# turn a little less when the outermost sensor value is lower to alllow for slighter adjustments
+			else
+				motor.left.target = speed
+			end
+		# turn right if the robot's left side is closer to the leader
+		else
+			motor.left.target = 0
+			# turn more when the outermost sensor value is higher
+			if prox.horizontal[4] < prox.horizontal[3] then
+				motor.right.target = speed + 1/4 * speed
+			# turn a little less when the outermost sensor value is lower to alllow for slighter adjustments
+			else
+				motor.right.target = speed
+			end
+		end
+	else
+		# the robot is not going backwards, i.e. forwards or turn
+		if backprotocol == 0 then
+			# if the robot is too close to an obstacle in front, it starts moving backwards
+			if prox.horizontal[1] > maxdistance and prox.horizontal[3]> maxdistance then
+				backprotocol = 1
+				motor.left.target = -speed
+				motor.right.target = -speed
+			# if the robot has something directly in front or slightly to the left and closer than the maximal permitted distance, it turns quickly to the right and turns red
+			elseif prox.horizontal[2] > maxdistance or prox.horizontal[1] > maxdistance then
+				motor.left.target = speed + 1/4 * speed
+				motor.right.target = 0
+				call leds.top(32,0,0)
+			# if the robot has something slightly to the right and closer than the maximal permitted distance, it turns quickly to the left and turns yellow
+			elseif  prox.horizontal[3] > maxdistance then
+				motor.left.target = 0
+				motor.right.target = speed + 1/4 * speed
+				call leds.top(32,32,0)
+			# if the robot has something on its far left, it turns right more slowly and turns purple
+			elseif prox.horizontal[0] > maxdistance then
+				motor.left.target = speed
+				motor.right.target = 0
+				call leds.top(32,0,32)
+			# if the robot has something on its far right, it turns left more slowly and turns green
+			elseif  prox.horizontal[4] > maxdistance then
+				motor.left.target = 0
+				motor.right.target = speed
+				call leds.top(0,32,0)
+			# if there is nothing in front of the robot, it moves straight und turns cyan
+			else
+				motor.left.target = speed
+				motor.right.target = speed
+				call leds.top(0,32,32)
+			end
+		# the robot is moving backwards
+		else
+			call leds.top(0,0,32)
+			counter++
+			# move backwards while the counter has not reached its maximum and there is nothing behind the robot
+			if counter < countermax and prox.horizontal[5] < 3300 and prox.horizontal[6] < 3300 then
+				motor.left.target = -speed
+				motor.right.target = -speed
+			# turn right once the counter has reached the countermax (plus error margin)
+			elseif counter >= countermax and counter < (countermax +5) then
+				motor.left.target = speed
+				motor.right.target = 0
+			# once the turn is complete, the robot starts moving straight forward again and the counter is reset
+			elseif counter >=  (countermax + 5) then
+				motor.left.target = speed
+				motor.right.target = speed
+				backprotocol = 0
+				counter = 0
+			end
+		end
+	end
+
