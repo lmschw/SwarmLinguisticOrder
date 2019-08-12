@@ -1,5 +1,4 @@
-# this program allows the robot to decide how happy it is with the position the user puts it in with regards to the values assigned to its neighbours. If it is not happy, it will
-# walk off after a while
+# this program allows the robot to decide how happy it is with the position the user puts it in with regards to the values assigned to its neighbours. If it is not happy, it will walk off after a while unless the escape behaviour is disabled
 
 #----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
@@ -10,7 +9,7 @@ var stopMovementAfter = 20	# how long they move when they walk away
 var changerate = 1 	# changerate == 2: 12s; 3: 18s; 30: 171s;; max: 125; the higher the rate, the slower the escape; determines how long the robot waits if it is unhappy; set changerate = 0 to prevent escape behaviour
 
 # variables
-var value = 77 	# the ASCII code of the letter
+var value = 77 			# the ASCII code of the letter
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
 var nextval = 0 			# the value of the next robot. This is the robot in front
 var prevval = 0			# the value of the previous robot. This is the robot behind this robot
@@ -18,11 +17,12 @@ var nextsave = 0 		# the last value stored for the next robot. Used to measure i
 var prevsave = 0 		# the last value stored for the previous robot. Used to measure if the neighbours have changed
 var change				# boolean variable to indicate if there have been any changes
 var walksies = 0		# counter to determine when to stop moving
-var changerateupdate = 10000
+var changeratemax = 10000	# the maximum number to be counted down from for the modulo calculations for the change in happiness
+var changerateupdate = changeratemax	# the current number to be counted down from for the modulo calculations for the change in happiness
 var happiness = -1	# how happy the robot is where it is at the moment. -1 if it does not have neighbours
 var maxrecount = 0	# used to check if the robot has already performed a certain recount
 
-# for average of last 10 sensor readings
+#  last 10 sensor readings
 var lastHorizontal0readings[] = [0,0,0,0,0,0,0,0,0,0]
 var lastHorizontal1readings[] = [0,0,0,0,0,0,0,0,0,0]
 var lastHorizontal2readings[] = [0,0,0,0,0,0,0,0,0,0]
@@ -31,8 +31,9 @@ var lastHorizontal4readings[] = [0,0,0,0,0,0,0,0,0,0]
 var lastHorizontal5readings[] = [0,0,0,0,0,0,0,0,0,0]
 var lastHorizontal6readings[] = [0,0,0,0,0,0,0,0,0,0]
 
-var roundPointer = 0
+var roundPointer = 0	# next index that needs to be updated in the sensor readings arrays
 
+# averages of the last 10 sensor readings
 var avgH0 = 0
 var avgH1 = 0
 var avgH2 = 0
@@ -41,11 +42,12 @@ var avgH4 = 0
 var avgH5 = 0
 var avgH6 = 0
 
-var i = 0
+var i = 0	# counter variable
 
 # frequencies
 var prev[27]				# array storing all the frequencies for the previous values
 var next[27]				# array storing all the frequencies for the subsequent values
+
 
 # initializing the context frequencies []a. abc + space
 prev[0] = 75
@@ -132,6 +134,7 @@ onevent buttons
 # this event is launched at regular intervals. Therefore, any code within the prox event will be executed regularly. 
 # this code segment handles the updates from the subroutines it calls and updates the colour
 onevent prox
+	#////////////////////////////////////////////////////////////////////////readings update
 	# updating the last reading arrays
 	lastHorizontal0readings[roundPointer] = prox.horizontal[0]
 	lastHorizontal1readings[roundPointer] = prox.horizontal[1]
@@ -141,10 +144,36 @@ onevent prox
 	lastHorizontal5readings[roundPointer] = prox.horizontal[5]
 	lastHorizontal6readings[roundPointer] = prox.horizontal[6]
 	
+	#//////////////////////////////////////////////////////////////////////average
 	# computing the average of the last 10 sensor readings for all horizontal distance sensors
-	callsub average
+	avgH0 = 0
+	avgH1 = 0
+	avgH2 = 0
+	avgH3 = 0
+	avgH4 = 0
+	avgH5 = 0
+	avgH6 = 0
+	i = 0
+	while i < 10 do
+		avgH0 += lastHorizontal0readings[i]
+		avgH1 += lastHorizontal1readings[i]
+		avgH2 += lastHorizontal2readings[i]
+		avgH3 += lastHorizontal3readings[i]
+		avgH4 += lastHorizontal4readings[i]
+		avgH5 += lastHorizontal5readings[i]
+		avgH6 += lastHorizontal6readings[i]
+		i++
+	end
+	avgH0 = avgH0/10
+	avgH1 = avgH1/10
+	avgH2 = avgH2/10
+	avgH3 = avgH3/10
+	avgH4 = avgH4/10
+	avgH5 = avgH5/10
+	avgH6 = avgH6/10
 	
-	# escape movement
+	#//////////////////////////////////////////////////////////////escape movement
+	# this segment deals with the escape movement. If the escape movement is activated and the robot does not have any neighbours, it checks if it is moving forward of backward and adjusts the direction if it has been turning. After a certain while - timed using the counter 'walksies' - the robot stops and resets 'walksies' for the next escape	
 	if (avgH0 < 10 and avgH0 > -10) and (avgH4 < 10 and avgH4 > -10)  and (avgH5 < 10 and avgH5 > -10) and (avgH6 < 10 and avgH6 > -10)  then
 		if motor.left.target > 0 and walksies < stopMovementAfter then
 			motor.left.target = speed
@@ -161,9 +190,19 @@ onevent prox
 		end
 	end
 	
-	# call the subroutine to establish the IDs
-	callsub establishIDs
+	#///////////////////////////////////////////////////////////////////establishIDs
+	# if no neighbour behind but neighbour in front, ID = 1
+	if id == 0 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10) then
+		id = 1
+		# send out the robot's ID
+		prox.comm.tx = id
+	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
+	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10)) then
+		id = 1
+		emit recountID
+	end
 	
+	#//////////////////////////////////////////////////////////////check neighbours
 	# if there are no neighbours, set happiness to -1 and reset both prevval and nextval
 	if (avgH2 < 10 and avgH2 > -10)  and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) then
 		happiness = -1
@@ -177,17 +216,64 @@ onevent prox
 		prevval = 0
 	end
 	
+	#////////////////////////////////////////////////////////////emit neighbour_value
 	# if the robot has an ID, it broadcasts its value and its ID. That way, the receiving robots can check if they should consider the value
 	if id !=0 then
 		emit neighbour_value [id, value]
 	end
 	
-	# first, the changecheck subroutine is called to establish if there has been any changes to the neighbours. Then, this update influences the happycheck subroutine which determines
-	# how happy the robot currently is.
-	callsub changecheck
-	callsub happycheck
+	#///////////////////////////////////////////////////////////check for change
+	# checking if there have been any changes to the neighbours will influence the happiness as the happiness is only decreased if there is no change.
+	# if the saved and the current value of the previous and the subsequent robot are the same, no change has been made
+	if prevval == prevsave and nextval == nextsave then
+		change = 0
+	# if one or both values are different, then there has been some change,  the saved states are updated and the changerateupdate value is reset to the max
+	else
+		change = 1
+		changerateupdate = changeratemax
+		prevsave = prevval
+		nextsave = nextval
+	end	
+	
+	#//////////////////////////////////////////////////////////establish happiness
+	# if there has not been any change since the last time the happiness was established, the happiness is gradually reduced to help the user to possibly determine where the error might lie. However, happiness is only actually decreased if the changerate is not zero, thus giving the option to disable the decrease.
+	if change == 0 then
+ 		if happiness > 0  then
+ 			if changerateupdate % changerate == 0 then
+ 				 happiness = happiness-1
+ 			end
+ 			changerateupdate--
+ 		# if the robot is too unhappy, it walks away. the movement does not stop until it is brought to a stop by pressing the backward button
+ 		elseif happiness == 0 then
+ 			# if there is nothing in front of it, it walks straight ahead
+ 			if (avgH2 < 10 and avgH2 > -10) then
+ 				motor.left.target = speed
+ 				motor.right.target = speed
+ 			# if there is something in front but nothing at the back, it moves straight backwards
+ 			elseif (avgH5 < 10 and avgH5 > -10) and (avgH6 < 10 and avgH6 > -10) then
+ 				motor.left.target = -speed
+ 				motor.right.target = -speed
+ 			# if it is in the middle of two robots, it turns right
+ 			else
+ 				motor.left.target = 200
+ 				motor.right.target = 0
+ 			end
+ 		end
+ 		
+	 # if the robot has two neighbours, it does the sum; if the robot only has one neighbour, the other side is considered an empty space; if the robot does not have neighbours, happiness = -1
+ 	else
+ 		if prevval != 0 and nextval != 0 then
+ 			happiness = prev[prevval-65] + next[nextval-65]
+ 		elseif nextval != 0 then
+ 			happiness = prev[26] + next[nextval-65]
+ 		elseif prevval != 0 then
+ 			happiness = prev[prevval-65] + next[26]
+ 		else
+ 			happiness = -1
+ 		end
+ 	end
 
-	# depending on the happiness value, the top leds light up in a different colour. no neighbours = blue; happy = green; okay = yellow; red = unhappy
+	#/////////////////////////////////////////////////////////colour scheme
 	if happiness == -1 then
 		call leds.top(32,32,32)
 	elseif  happiness > 200 then
@@ -210,20 +296,6 @@ onevent prox
 #----------------------------------------------------------------------------END PROX BLOCK-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------B O T T O M   L A Y E R   C O M M U N I C A T I O N-------------------------------------------------
-#------------------------------------------------------------------BEGIN ID ESTABLISHMENT BLOCK----------------------------------------------------------------------
-sub establishIDs
-	# if no neighbour behind but neighbour in front, ID = 1
-	if id == 0 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10) then
-		id = 1
-		# send out the robot's ID
-		prox.comm.tx = id
-	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
-	elseif( id != 1 and ((avgH5 < 10 and avgH5 > -10) or (avgH6 < 10 and avgH6 > -10)) and (avgH2 > 10 or avgH2 < -10)) then
-		id = 1
-		emit recountID
-	end
-
-#------------------------------------------------------------------END ID ESTABLISHMENT BLOCK------------------------------------------------------------------------
 #------------------------------------------------------------------BEGIN PROX.COMM BLOCK-----------------------------------------------------------------------------
 # if the robot receives a message using prox.comm, it assumes an ID or checks if it has been moved.
 	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
@@ -276,92 +348,3 @@ onevent neighbour_value # takes 2 arguments: ID and value
 	end
 
 #----------------------------------------------------------------------------END NEIGHBOUR BLOCK-----------------------------------------------------------------------
-#----------------------------------------------------------------------------BEGIN HAPPINESS CHECK BLOCK-------------------------------------------------------------		
-# this subroutine establishes how happy the robot currently is at its position with regards to its neighbours.	
-sub happycheck
-	# if there has not been any change since the last time this subroutine was called, the happiness is gradually reduced to help the user to possibly determine where
-	# the error might lie
- 	if change == 0 then
- 		if happiness > 0  then
- 			if changerateupdate % changerate == 0 then
- 				 happiness = happiness-1
- 			end
- 			changerateupdate--
- 		# if the robot is too unhappy, it walks away. the movement does not stop until it is brought to a stop by pressing the backward button
- 		elseif happiness == 0 then
- 			# if there is nothing in front of it, it walks straight ahead
- 			if (avgH2 < 10 and avgH2 > -10) then
- 				motor.left.target = speed
- 				motor.right.target = speed
- 			# if there is something in front but nothing at the back, it moves straight backwards
- 			elseif (avgH5 < 10 and avgH5 > -10) and (avgH6 < 10 and avgH6 > -10) then
- 				motor.left.target = -speed
- 				motor.right.target = -speed
- 			# if it is in the middle of two robots, it turns left
- 			else
- 				motor.left.target = 200
- 				motor.right.target = 0
- 			end
- 		end
- 		
-	 # if the robot has two neighbours, it does the sum.
-	 # if the robot only has one neighbour, the other side is considered an empty space
-	 # if the robot does not have neighbours, happiness = -1
- 	else
- 		if prevval != 0 and nextval != 0 then
- 			happiness = prev[prevval-65] + next[nextval-65]
- 		elseif nextval != 0 then
- 			happiness = prev[26] + next[nextval-65]
- 		elseif prevval != 0 then
- 			happiness = prev[prevval-65] + next[26]
- 		else
- 			happiness = -1
- 		end
- 	end
-
-#----------------------------------------------------------------------------END HAPPINESS CHECK BLOCK---------------------------------------------------------------
-#----------------------------------------------------------------------------BEGIN CHANGE CHECK BLOCK----------------------------------------------------------------	
-# this subroutine checks if there has been any change to the neighbours since the subroutine was last called	 	
-sub changecheck
-	# if the saved and the current value of the previous and the subsequent robot are the same, no change has been made
-	if prevval == prevsave and nextval == nextsave then
-		change = 0
-	# if one or both values are different, then there has been some change and the saved states are updated
-	else
-		change = 1
-		prevsave = prevval
-		nextsave = nextval
-	end
-
-#----------------------------------------------------------------------------END CHANGE CHECK BLOCK------------------------------------------------------------------	
-#----------------------------------------------------------------------------P R O X    H O R I Z O N T A L   A V E R A G E-----------------------------------------------	
-#----------------------------------------------------------------------------BEGIN AVERAGE BLOCK-----------------------------------------------------------------------	
-# computing the averages of all horizontal proximity sensor valules
-sub average
-	avgH0 = 0
-	avgH1 = 0
-	avgH2 = 0
-	avgH3 = 0
-	avgH4 = 0
-	avgH5 = 0
-	avgH6 = 0
-	i = 0
-	while i < 10 do
-		avgH0 += lastHorizontal0readings[i]
-		avgH1 += lastHorizontal1readings[i]
-		avgH2 += lastHorizontal2readings[i]
-		avgH3 += lastHorizontal3readings[i]
-		avgH4 += lastHorizontal4readings[i]
-		avgH5 += lastHorizontal5readings[i]
-		avgH6 += lastHorizontal6readings[i]
-		i++
-	end
-	avgH0 = avgH0/10
-	avgH1 = avgH1/10
-	avgH2 = avgH2/10
-	avgH3 = avgH3/10
-	avgH4 = avgH4/10
-	avgH5 = avgH5/10
-	avgH6 = avgH6/10
-
-#----------------------------------------------------------------------------END AVERAGE BLOCK-----------------------------------------------------------------------	
