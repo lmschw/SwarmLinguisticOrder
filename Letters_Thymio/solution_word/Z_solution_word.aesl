@@ -16,6 +16,7 @@ var lengthSolution = 3					# enter the number of letters in the word
 
 # ---------------------------------------------------------------------------END OPTIONS-----------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
+#////////////////////////////////////////////////////////////////////////////general variables
 var value = 90 			# the ASCII code of the letter
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
 var nextval = 0 			# the value of the next robot. This is the robot in front
@@ -29,8 +30,8 @@ var changerateupdate = changeratemax	# the variable used to keep track of the ha
 var happiness = -1		# how happy the robot is where it is at the moment. -1 if it does not have neighbours
 var displayColour = 0	# used for the hints. If 0, the colour corresponding to the overall happiness is shown. If 1, the colour associated with the hint is shown
 
-# solution option variables
-var storagesize = 15
+#////////////////////////////////////////////////////////////////////////////solution option variables
+var storagesize = 15	# number of potential matches that will be considered
 var solutionPrevs[15]	#stores the previous letters in the solution
 var solutionNexts[15] 	# stores the next letters in the solution
 var numberOfMatches = 0	# stores the number of occurrences of the letter in the solution word
@@ -40,7 +41,7 @@ var prevMatch = 0		# boolean to indicate if the previous robots value matches th
 var nextMatch = 0		# boolean to indicate if the next robots value matches the value's position in the solution word
 var fullMatch = 0			# boolean to indicate if both neighbours match the solution word
 
-# frequencies
+#////////////////////////////////////////////////////////////////////////////frequencies
 var prev[27]				# array storing all the frequencies for the previous values
 var next[27]				# array storing all the frequencies for the subsequent values
 
@@ -102,32 +103,37 @@ next[24] = 0
 next[25] = 50
 next[26] = 0
 
-
-# create the solution environments
+#///////////////////////////////////////////////// create the solution environments
+# if a solution has been provided, then the robot iterates through the solution array and checks if the letter at that index is the same as its own value. If that is the case, it adds it to the solution environment arrays - substituting 26 for a missing value as the frequency values for 'space' are stored at index 26 in the frequency arrays. In the unlikely case that the storagesize should be exhausted, the robot stops iterating. Aseba does not allow dynamic size increases, therefore that is all that can be done at this point. If more solution environments are expected, the maximum storage size should be adapted at the variable declaration.
 if solutionAvailable == 1 then
 	i = 0
 	j = 0
 	while i < lengthSolution do
 		if solutionWord[i] == value then
+			# first letter of the word
 			if i == 0 and i != lengthSolution-1 then
 				solutionPrevs[j] = 26
 				solutionNexts[j] = solutionWord[i+1]
 				j++
+			# neither first nor last letter of the word
 			elseif i != 0 and i != lengthSolution-1 then
 				solutionPrevs[j] = solutionWord[i-1]
 				solutionNexts[j] = solutionWord[i+1]
 				j++
+			# last letter of the word
 			elseif i != 0 and i == lengthSolution-1 then
 				solutionPrevs[j] = solutionWord[i-1]
 				solutionNexts[j] = 26
 				j++
-				if j >= storagesize then
-					i = lengthSolution
-				end
 			end
 			numberOfMatches++
 		end
-		i++
+		# max number of solutions permitted by the storage size found
+		if j >= storagesize then
+			i = lengthSolution
+		else
+			i++
+		end
 	end
 end
 
@@ -162,7 +168,6 @@ onevent buttons
 	
 	# if the backward button is pressed and hints are enabled, the robot will display a colour which indicates how happy it is with its previous neighbour. If that neighbour is perfect but possibly with another neighbour on the other side, it will light up cyan. It will also light up half circle around the button to indicate the direction
 	if  button.backward == 1 and hints_ENABLED == 1 then
-		callsub checkMatches
 		displayColour = 1
 		call leds.circle(0,0,15,15,15,15,15,0)
 		if prevMatch > 0 then
@@ -192,7 +197,6 @@ onevent buttons
 
 	# if the forward button is pressed and hints are enabled, the robot will display a colour which indicates how happy it is with its next neighbour.  If that neighbour is perfect but possibly with another neighbour on the other side, it will light up cyan. It will also light up half circle around the button to indicate the direction
 	if  button.forward == 1 and hints_ENABLED == 1 then
-		callsub checkMatches
 		displayColour = 1
 		call leds.circle(0,0,15,15,15,15,15,0)
 		if nextMatch > 0 then
@@ -231,6 +235,7 @@ onevent timer0
 # this event is launched at regular intervals. Therefore, any code within the prox event will be executed regularly. 
 # this code segment handles the updates from the subroutines it calls and updates the colour
 onevent prox
+	#/////////////////////////////////////////////////////////////////////escape movement
 	# this segment deals with the escape movement. If the escape movement is activated and the robot does not have any neighbours, it checks if it is moving forward of 
 	#backward and adjusts the direction if it has been turning. After a certain while - timed using the counter 'walksies' - the robot stops and resets 'walksies' for the next 
 	#escape
@@ -250,9 +255,19 @@ onevent prox
 		end
 	end
 	
-	# calling subroutine to establish the IDs
-	callsub establishIDs
+	#//////////////////////////////////////////////////////////////////////establishing the IDs (bottom layer communication)
+	# if no neighbour behind but neighbour in front, ID = 1
+	if id == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+		id = 1
+		# send out the robot's ID
+		prox.comm.tx = id
+	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
+	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
+		id = 1
+		emit recountID
+	end
 	
+	#////////////////////////////////////////////////////////////////////check for missing neighbours
 	# if there are no neighbours, set happiness to -1 and reset both prevval and nextval
 	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
 		happiness = -1
@@ -266,16 +281,86 @@ onevent prox
 		prevval = 0
 	end
 	
+	#////////////////////////////////////////////////////////////////////broadcasting ID
 	# if the robot has an ID, it broadcasts its value and its ID. That way, the receiving robots can check if they should consider the value
 	if id !=0 then
 		emit neighbour_value [id, value]
 	end
 	
-	# first, the changecheck subroutine is called to establish if there has been any changes to the neighbours. Then, this update influences the happycheck subroutine which determines
-	# how happy the robot currently is.
-	callsub changecheck
-	callsub happycheck
+	#////////////////////////////////////////////////////////////////////check for change
+	# checking if there have been any changes to the neighbours will influence the happiness as the happiness is only decreased if there is no change.
+	# if the saved and the current value of the previous and the subsequent robot are the same, no change has been made
+	if prevval == prevsave and nextval == nextsave then
+		change = 0
+	# if one or both values are different, then there has been some change,  the saved states are updated and the changerateupdate value is reset to the max
+	else
+		change = 1
+		changerateupdate = changeratemax
+		prevsave = prevval
+		nextsave = nextval
+	end
+	
+	#////////////////////////////////////////////////////////////////////establish happiness
+	# if there has not been any change since the last time the happiness was established, the happiness is gradually reduced to help the user to possibly determine where the error might lie. However, happiness is only actually decreased if the changerate is not zero, thus giving the option to disable the decrease. If there has not been any change since the last time this section was executed, the happiness is gradually reduced to help the user to possibly determine where the error might lie. However, happiness is only actually decreased if the changerate is not zero.
+ 	if change == 0 then
+ 		if happiness > 0  then
+ 			if changerateupdate % changerate == 0 then
+ 				 happiness = happiness-1
+ 			end
+ 			changerateupdate--
+ 		# if the robot is too unhappy, it walks away. the movement stops after a while. This is taken care of in the prox block
+ 		elseif happiness == 0 then
+ 			# if there is nothing in front of it, it walks straight ahead
+ 			if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) then
+ 				motor.left.target = speed
+ 				motor.right.target = speed
+ 			# if there is something in front but nothing at the back, it moves straight backwards
+ 			elseif (prox.horizontal[5] < 10 and prox.horizontal[5] > -10) and (prox.horizontal[6] < 10 and prox.horizontal[6] > -10) then
+ 				motor.left.target = -speed
+ 				motor.right.target = -speed
+ 			# if it is in the middle of two robots, it turns right
+ 			else
+ 				motor.left.target = speed
+ 				motor.right.target = 0
+ 			end
+ 		end
+ 	
+ 	 # checks if the robot's neighbours are matches according to the solution word. If both neighbours are perfect, happiness = -2. If the robot has two neighbours, it does the sum. If the robot only has one neighbour, the other side is considered an empty space. If the robot does not have neighbours, happiness = -1. If the robot is in a perfect solution environment, happiness = -2
+ 	else
+ 		# checks the current neighbours against all solution environments that have been identified. If it finds a perfect match, happiness is set to -2
+ 		if solutionAvailable == 1 then
+ 			i = 0
+ 			prevMatch = 0
+ 			nextMatch = 0
+ 			fullMatch = 0
+ 			while i < numberOfMatches do
+ 				if (prevval != 0 and solutionPrevs[i] == prevval) or (prevval == 0 and solutionPrevs[i] == 26) then
+ 					prevMatch = i+1
+ 				end
+ 				if (nextval != 0 and solutionNexts[i] == nextval) or (nextval == 0 and solutionNexts[i] == 26) then
+ 					nextMatch = i+1
+ 				end
+ 				if prevMatch == nextMatch and prevMatch != 0 and nextMatch != 0 then
+ 					fullMatch = 1
+ 				end
+ 				i++
+ 			end
+ 		end
+ 		# actual happines computation/setting
+ 		if fullMatch == 1 then
+ 			happiness = -2
+ 		elseif prevval != 0 and nextval != 0 then
+ 			happiness = prev[prevval-65] + next[nextval-65]
+ 		elseif nextval != 0 then
+ 			happiness = prev[26] + next[nextval-65]
+ 		elseif prevval != 0 then
+ 			happiness = prev[prevval-65] + next[26]
+ 		else
+ 			happiness = -1
+ 		end
+ 	end
 
+	#/////////////////////////////////////////////////////////////////////colour scheme
 	# if there is no hint being displayed, depending on the happiness value, the top leds light up in a different colour. cyan = perfect; no neighbours = blue; happy = green; ok = yellow; red = unhappy. If sound is enabled, a sound is produced upon change of neighbour
 	if displayColour == 0 then
 		if happiness == -2 then
@@ -306,23 +391,8 @@ onevent prox
 #----------------------------------------------------------------------------END PROX BLOCK-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------B O T T O M   L A Y E R   C O M M U N I C A T I O N-------------------------------------------------
-#------------------------------------------------------------------BEGIN ID ESTABLISHMENT BLOCK----------------------------------------------------------------------
-sub establishIDs
-	# if no neighbour behind but neighbour in front, ID = 1
-	if id == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
-		id = 1
-		# send out the robot's ID
-		prox.comm.tx = id
-	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
-	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
-		id = 1
-		emit recountID
-	end
-
-#------------------------------------------------------------------END ID ESTABLISHMENT BLOCK------------------------------------------------------------------------
 #------------------------------------------------------------------BEGIN PROX.COMM BLOCK-----------------------------------------------------------------------------
-# if the robot receives a message using prox.comm, it assumes an ID or checks if it has been moved.
-	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
+# if the robot receives a message using prox.comm, it assumes an ID or checks if it has been moved. If the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
 onevent prox.comm
 	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
 	if  id == 0 and prox.comm.rx != 0 and ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
@@ -358,10 +428,7 @@ onevent recountID
 
 #----------------------------------------------------------------------------V A L U E   H A N D L I N G----------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN NEIGHBOUR BLOCK---------------------------------------------------------------------	
-# whenever the robot receives a neighbour_value event, it checks if it is entitled to handle these events. For that, it needs to have an id, i.e. it needs to be in the line
-# if it is in the line, it checks if the value is relevant to it. Only the direct neighbours values are considered relevant. These are the robots with the IDs that are the robot's 
-# own ID +/-1. If that is the case, the values for the previous or next robot are updated accordingly. As the IDs count upwards from the end, the value is assigned to
-# prevval if it is lower and to nextval if it is higher
+# whenever the robot receives a neighbour_value event, it checks if it is entitled to handle these events. For that, it needs to have an id, i.e. it needs to be in the line. If it is in the line, it checks if the value is relevant to it. Only the direct neighbours values are considered relevant. These are the robots with the IDs that are the robot's own ID +/-1. If that is the case, the values for the previous or next robot are updated accordingly. As the IDs count upwards from the end, the value is assigned to prevval if it is lower and to nextval if it is higher
 onevent neighbour_value # takes 2 arguments: ID and value
 	if id != 0 then
 		if event.args[0] == id-1 then
@@ -372,87 +439,3 @@ onevent neighbour_value # takes 2 arguments: ID and value
 	end
 
 #----------------------------------------------------------------------------END NEIGHBOUR BLOCK-----------------------------------------------------------------------
-#----------------------------------------------------------------------------BEGIN HAPPINESS CHECK BLOCK-------------------------------------------------------------		
-# this subroutine establishes how happy the robot currently is at its position with regards to its neighbours.	
-sub happycheck
-	# if there has not been any change since the last time this subroutine was called, the happiness is gradually reduced to help the user to possibly determine where
-	# the error might lie. However, happiness is only actually decreased if the changerate is not zero.
- 	if change == 0 then
- 		if happiness > 0  then
- 			if changerateupdate % changerate == 0 then
- 				 happiness = happiness-1
- 			end
- 			changerateupdate--
- 		# if the robot is too unhappy, it walks away. the movement stops after a while. This is taken care of in the prox block
- 		elseif happiness == 0 then
- 			# if there is nothing in front of it, it walks straight ahead
- 			if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) then
- 				motor.left.target = speed
- 				motor.right.target = speed
- 			# if there is something in front but nothing at the back, it moves straight backwards
- 			elseif (prox.horizontal[5] < 10 and prox.horizontal[5] > -10) and (prox.horizontal[6] < 10 and prox.horizontal[6] > -10) then
- 				motor.left.target = -speed
- 				motor.right.target = -speed
- 			# if it is in the middle of two robots, it turns left
- 			else
- 				motor.left.target = speed
- 				motor.right.target = 0
- 			end
- 		end
- 	
- 	 # checks if the robot's neighbours are matches according to the solution word. If both neighbours are perfect, happiness = -2
-	 # if the robot has two neighbours, it does the sum.
-	 # if the robot only has one neighbour, the other side is considered an empty space
-	 # if the robot does not have neighbours, happiness = -1
- 	else
- 		callsub checkMatches
- 		if fullMatch == 1 then
- 			happiness = -2
- 		elseif prevval != 0 and nextval != 0 then
- 			happiness = prev[prevval-65] + next[nextval-65]
- 		elseif nextval != 0 then
- 			happiness = prev[26] + next[nextval-65]
- 		elseif prevval != 0 then
- 			happiness = prev[prevval-65] + next[26]
- 		else
- 			happiness = -1
- 		end
- 	end
-
-# this subroutine checks if the current neighbours are a partial or perfect match for the solution word and the robot providing the solution option is enabled 	
-sub checkMatches
- 	if solutionAvailable == 1 then
- 			i = 0
- 			prevMatch = 0
- 			nextMatch = 0
- 			fullMatch = 0
- 			while i < numberOfMatches do
- 				if (prevval != 0 and solutionPrevs[i] == prevval) or (prevval == 0 and solutionPrevs[i] == 26) then
- 					prevMatch = i+1
- 				end
- 				if (nextval != 0 and solutionNexts[i] == nextval) or (nextval == 0 and solutionNexts[i] == 26) then
- 					nextMatch = i+1
- 				end
- 				if prevMatch == nextMatch and prevMatch != 0 and nextMatch != 0 then
- 					fullMatch = 1
- 				end
- 				i++
- 			end
- 		end
-
-#----------------------------------------------------------------------------END HAPPINESS CHECK BLOCK---------------------------------------------------------------
-#----------------------------------------------------------------------------BEGIN CHANGE CHECK BLOCK----------------------------------------------------------------	
-# this subroutine checks if there has been any change to the neighbours since the subroutine was last called	 	
-sub changecheck
-	# if the saved and the current value of the previous and the subsequent robot are the same, no change has been made
-	if prevval == prevsave and nextval == nextsave then
-		change = 0
-	# if one or both values are different, then there has been some change,  the saved states are updated and the changerateupdate value is reset to the max
-	else
-		change = 1
-		changerateupdate = changeratemax
-		prevsave = prevval
-		nextsave = nextval
-	end
-
-#----------------------------------------------------------------------------END CHANGE CHECK BLOCK------------------------------------------------------------------	
