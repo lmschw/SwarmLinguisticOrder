@@ -1,0 +1,337 @@
+# does
+# AUXILIARY FOR NEGATIVE
+
+#----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------variables--------------------------------------------------------------------------------------------------
+# word-specific values
+var value[] = [68, 79, 69, 83] 			# the ASCII code every letter of the word as an array - 'does'
+var class = 17								# category - negative auxiliary in this case
+var coreclass = 0			# if the class is the core of a phrase
+
+# grammaticality judgements
+var maxclass = class	# maximal phrase category achieved, e.g. NP, VP, construction etc.
+var phraseID = 0			# id of the phrase containing the word
+var phrasetype = 0		# type of the phrase corresponding to the phraseID
+var oldphraseID = 0	# if superceding phrase, used to notify all other members of the same phrase
+var phraseComplete = 0	# if the phrase is complete
+var constructionComplete = 0	# if the whole construction is complete
+#var phraseIDsInPhrase[4]	# where the IDs of all absorbed phrases are stored
+var highestpid = 0	# highest phraseID below the current robot
+var phrasestart = -1
+var phraseend = -1
+var phrasecore = -1
+var updateComplete = 1
+var upscalable = 0		# is another increment possible?
+var updateSuccessful = 0
+var higherPhrase = 0	# does the robot belong to another phrase
+var cu = 0		# keep sending out checkupdate events?
+var bl = 0			# keep sending out the block event?
+var lastPhraseAddition = 0	# ID of the core of the last phrase added
+var next = 0	# boolean to check if the checkupdate should send the prhasestart or phraseend
+
+# general variables
+var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the backhigh
+var oldid = 0				# to check if there has been a change in the order
+var pid = 0					# underlying phrase id
+var oldpid = 0				# to check if there has been a change in the pid
+
+# aux variables
+#var prevback = 0
+#var prevfront = 0
+var bool = 0
+var i = 0
+var j = 0
+
+#--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------functions----------------------------------------------------------------------------------------------------
+
+# resetting the leds so that no previous colour setting interferes
+call leds.top(0,0,0)
+
+# enabling communication
+call prox.comm.enable(1)
+
+timer.period[0] = 2000
+
+#----------------------------------------------------------------------------END INITIALISATION----------------------------------------------------------------------------------
+
+onevent prox	
+	
+	oldid = id
+	oldpid = pid
+	
+	# call the subroutine to establish the IDs
+	if id == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+		id = 1
+		# send out the robot's ID
+		prox.comm.tx = id
+	# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
+	elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
+		id = 1
+		emit recountID
+		callsub reset
+	end
+	
+	if pid == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+		if coreclass != 1 then
+			pid = 1
+			highestpid = 1
+			emit neighbour_value [id, pid]
+		else
+			pid = -2
+			emit neighbour_value [id, 0]			
+		end
+	else
+		emit neighbour_value [id, highestpid]
+	end	
+		
+	if higherPhrase != 1  then
+		phraseID = pid
+		if coreclass == 1 then
+			phrasestart = id
+			phraseend = id
+		else
+			phrasestart = -1
+			phraseend = -1
+		end
+	end
+	
+	if cu == 1 or updateComplete == 0 then
+		#call sound.system(7)
+		if next == 1 and (phraseend != -1 and phraseend != 0) then
+			emit checkUpdate [id, phrasecore, maxclass, phraseend]
+		elseif next == 1 then
+			emit checkUpdate [id, phrasecore, maxclass, id]
+		elseif (phrasestart != -1 and phrasestart != 0) then
+			emit checkUpdate [id, phrasecore, maxclass, phrasestart]
+		else
+			emit checkUpdate [id, phrasecore, maxclass, id]
+		end
+	end
+	
+	if updateSuccessful == 1  and lastPhraseAddition != 0 then
+		emit successfulUpdateConfirmation [id, lastPhraseAddition, phraseID, phrasetype, phraseComplete, upscalable]
+	end
+	
+	if bl == 1 then
+		emit block [id, phrasecore, maxclass]
+	end
+	
+	if oldphraseID != phraseID and oldphraseID > 0 then
+		emit supercede [id, oldphraseID, phraseID, phrasetype, phraseComplete, upscalable]
+	end
+	
+
+	if phraseComplete == 1 then
+		emit phraseComplete [phraseID, upscalable]
+	end
+	
+	if phraseID <= 0 then
+		phraseComplete = 0
+	end
+	
+	
+	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
+		upscalable = 1
+	end
+	
+	# if there are no neighbours, set colour to white
+	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
+		id = 0
+		phraseID = 0
+		upscalable = 0
+		call leds.top(32,32,32)
+		callsub reset
+	elseif constructionComplete == 1 then
+		call leds.top(0,32,0)
+	elseif phraseComplete == 1 then
+		call leds.top(32,32,0)
+	elseif id != 0 then
+		call leds.top(32,0,0)
+	else
+		call leds.top(32,32,32)
+	end
+
+
+#-----------------------------------------------------------------------C O M M U N I C A T I O N----------------------------------------------------------------------------------
+#-----------------------------------------------------------------------BOTTOM LAYER COMMUNICATION------------------------------------------------------------------------
+# BOTTOM LAYER COMMUNICATION
+
+onevent prox.comm
+	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
+	if  id == 0 and prox.comm.rx != 0 and ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
+		id = prox.comm.rx + 1
+		# send out the robot's ID
+		prox.comm.tx = id
+	# if the robot has an ID but receives an unexpected ID, the IDs need to be re-established as it is likely that the order has changed
+	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) and prox.comm.rx != 0 then
+		if id != 1 or ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 and prox.horizontal[6] < -10)) then
+			id = 0
+		end
+		prox.comm.tx = id
+		emit recountID
+		callsub reset
+	end
+	
+# set ID back to 0 and pass the message on
+onevent recountID
+	pid = 0
+	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+		if id != 1 then
+			id = 1
+			# send out the robot's ID
+			prox.comm.tx = id
+		end
+
+	elseif  id > 1 then
+		id = 0
+		# send out the robot's ID
+		prox.comm.tx = id
+	end
+	callsub reset
+
+#-------------------------------------------------------------------------TOP LAYER COMMUNICATION--------------------------------------------------------------------------------
+# TOP LAYER COMMUNICATION
+
+
+# neighbour_value [id{0}, maxphraseid{1}]
+onevent neighbour_value
+	if id == event.args[0]+1 then
+		if coreclass != 0 then
+			pid = event.args[1] + 1
+			highestpid = pid
+			emit neighbour_value [id, pid]
+		else
+			pid = -2
+			highestpid = event.args[1]
+			emit neighbour_value [id, highestpid]
+		end	
+	end
+	
+#-----------------------------------------------------------------G R A M M A T I C A L I T Y    J U D G E M E N T S----------------------------------------------------------------
+#-----------------------------------------------------------------SEARCH EVENTS------------------------------------------------------------------------------------------------------
+# negative auxiliaries can only occur before the verb. Therefore, if the robot receives a relevant searchNextCompletion event, it blocks.
+#	emit searchNextCompletion [id{0}, phraseID{1}, phraseend{2}, 	phrasetype{3}]
+onevent searchNextCompletion
+	if  phraseID != event.args[1] and maxclass == class and upscalable == 1 and  updateComplete == 1  and event.args[2] == id-1 then
+		phrasecore = event.args[0]
+		bl = 1
+		emit block [id, phrasecore, maxclass]
+	end
+
+#	emit searchNextCompletion [id{0}, phraseID{1}, phrasestart{2}, phrasetype{3}]
+onevent searchPrevCompletion
+	if  phraseID != event.args[1] and maxclass == class and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  102)  and event.args[2] == id+1 then
+		cu = 1
+		bl = 0
+		next = 0
+		phrasecore = event.args[0]
+		updateComplete = 0
+		if phrasestart != -1 and phrasestart != 0 then
+			emit checkUpdate [id, phrasecore, maxclass, phrasestart]
+		else
+			emit checkUpdate [id, phrasecore, maxclass, id]
+		end
+	elseif phraseID != event.args[1] and event.args[2] == id+1 and  (event.args[3] !=  102 )then
+		phrasecore = event.args[0]
+		bl = 1
+		emit block [id, phrasecore, maxclass]
+	end
+
+#----------------------------------------------------------------UPDATES----------------------------------------------------------------------------------------------------------------
+# is always complete and cannot be enhanced, therefore does not have to handle checkUpdate
+#	emit checkUpdate [id{0}, phrasecore{1}, maxclass{2}, phraseend{3}]
+
+
+# if the robot's phrase is absorbed, the supercede event informs it of the update
+# emit supercede [id{0}, oldphraseID{1}, phraseID{2}, phrasetype{3}, phraseComplete{4}, upscalable{5}]
+onevent supercede
+	if event.args[1] == phraseID then
+		oldphraseID = phraseID
+		phraseID = event.args[2]
+		phrasetype = event.args[3]
+		if event.args[4] == 1 then
+			phraseComplete = 1
+			maxclass = phrasetype
+		else
+			phraseComplete = 0
+		end
+		if event.args[5] == 1 then
+			upscalable = 1
+		else
+			upscalable = 0
+		end
+	end
+	
+# emit phraseComplete [phraseID, upscalable]
+onevent phraseComplete
+	if event.args[0] == phraseID then
+		phraseComplete = 1
+		upscalable = event.args[1]
+	end
+	
+# emit constructionComplete [phraseID]
+onevent constructionComplete
+	if event.args[0] == phraseID then
+		constructionComplete = 1
+		upscalable = 1
+	end
+	
+#-------------------------------------------------------------RESPONSES------------------------------------------------------------------------------------------------------------------
+#	emit successfulUpdateConfirmation [id{0}, event.args[0]{1}, phraseID{2}, phrasetype{3}, phraseComplete{4}, upscalable{5}]
+# if the phrasecore confirms the update, the robot updates its own data
+onevent successfulUpdateConfirmation
+	if event.args[0] == phrasecore and event.args[1] == id and phraseID != event.args[2] then
+		cu = 0
+		bl = 0
+		higherPhrase = 1
+		updateComplete = 1
+		oldphraseID = phraseID
+		phraseID = event.args[2]
+		phrasetype = event.args[3]
+		if event.args[4] == 1 then
+			phraseComplete = 1
+			maxclass = event.args[3]
+		else
+			phraseComplete = 0
+		end
+		if event.args[5] == 1 then
+			upscalable = 1
+		else
+			upscalable = 0
+		end
+		emit supercede [id, oldphraseID, phraseID, phrasetype, phraseComplete, upscalable]
+	end
+
+#if the phrasecore declines the update, the robot switches back into considering other search events
+#	emit updateDeclination [senderid, targetid]
+onevent updateDeclination
+	if event.args[0] == phrasecore and event.args[1] == id then
+		cu = 0
+		phrasecore = 0
+		updateComplete = 1
+	end
+	
+#----------------------------------------------------------------R E S E T T I N G-----------------------------------------------------------------------------------------------------
+sub reset
+	constructionComplete = 0
+	phraseComplete = 0
+	updateSuccessful = 0
+	cu = 0
+	maxclass = class
+	phraseID = 0
+	oldpid = 0
+	oldid = 0
+	highestpid = 0
+	pid = 0
+	phrasetype = 0		# type of the phrase corresponding to the phraseID	
+	oldphraseID = 0
+	upscalable = 1
+	phrasestart = 0
+	phraseend = 0
+	phrasecore = 0
+	higherPhrase = 0
+	updateComplete = 1
+	bl = 0
