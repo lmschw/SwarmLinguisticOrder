@@ -6,7 +6,7 @@ var speed = 200							# how fast the robots move away
 var stopMovementAfter = 20		# how long they keep moving when they walk away
 var changerate = 1 					# the higher the rate, the slower the escape; determines how long the robot waits if it is unhappy; set changerate = 0 to prevent escape behaviour
 var hints_ENABLED = 1				# provide hints on button press if 1, no hints if 0
-var sound = 1								# 1: sounds are played upon colour change; 0: muted
+var sound = 0								# 1: sounds are played upon colour change; 0: muted
 var hints_duration = 200			# how long the hints are displayed if they are enabled
 
 # solution options
@@ -29,6 +29,8 @@ var changeratemax = 10000	# the maximum number used to model the happiness decre
 var changerateupdate = changeratemax	# the variable used to keep track of the happiness decrease rate
 var happiness = -1		# how happy the robot is where it is at the moment. -1 if it does not have neighbours
 var displayColour = 0	# used for the hints. If 0, the colour corresponding to the overall happiness is shown. If 1, the colour associated with the hint is shown
+var oldhappinessgroup = -1	# used to emit sounds when robot switches colour due to automatic decrease
+
 
 #////////////////////////////////////////////////////////////////////////////solution option variables
 var storagesize = 15	# number of potential matches that will be considered
@@ -365,25 +367,30 @@ onevent prox
 	if displayColour == 0 then
 		if happiness == -2 then
 			call leds.top(0,32,32)
-			if change == 1 and sound == 1 then
+			if (change == 1 or oldhappinessgroup != -2) and sound == 1 then
 				call sound.system(7)
+				oldhappinessgroup = -2
 			end
 		elseif happiness == -1 then
 			call leds.top(32,32,32)
+			oldhappinessgroup = -1
 		elseif  happiness > 200 then
 			call leds.top(0,32,0)
-			if change == 1 and sound == 1 then
+			if (change == 1 or oldhappinessgroup != 1) and sound == 1 then
 				call sound.system(7)
+				oldhappinessgroup = 1
 			end
 		elseif  happiness > 100 then
 			call leds.top(32,32,0)
-			if change == 1 and sound == 1 then
+			if (change == 1 or oldhappinessgroup != 2) and sound == 1 then
 				call sound.system(6)
+				oldhappinessgroup = 2
 			end
 		else
 			call leds.top(32,0,0)
-			if change == 1 and sound == 1 then
+			if (change == 1 or oldhappinessgroup != 3) and sound == 1 then
 				call sound.system(4)
+				oldhappinessgroup = 3
 			end
 		end
 	end

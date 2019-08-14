@@ -20,7 +20,7 @@ var walksies = 0		# counter to determine when to stop moving
 var changeratemax = 10000	# the maximum number to be counted down from for the modulo calculations for the change in happiness
 var changerateupdate = changeratemax	# the current number to be counted down from for the modulo calculations for the change in happiness
 var happiness = -1	# how happy the robot is where it is at the moment. -1 if it does not have neighbours
-var maxrecount = 0	# used to check if the robot has already performed a certain recount
+var oldhappinessgroup = -1	# used to emit sounds when robot switches colour due to automatic decrease
 
 #  last 10 sensor readings
 var lastHorizontal0readings[] = [0,0,0,0,0,0,0,0,0,0]
@@ -47,7 +47,6 @@ var i = 0	# counter variable
 # frequencies
 var prev[27]				# array storing all the frequencies for the previous values
 var next[27]				# array storing all the frequencies for the subsequent values
-
 
 # initializing the context frequencies []a. abc + space
 prev[0] = 142
@@ -276,20 +275,24 @@ onevent prox
 	#/////////////////////////////////////////////////////////colour scheme
 	if happiness == -1 then
 		call leds.top(32,32,32)
+		oldhappinessgroup = -1
 	elseif  happiness > 200 then
 		call leds.top(0,32,0)
-		if change == 1 then
+		if change == 1 or oldhappinessgroup != 1 then
 			call sound.system(7)
+			oldhappinessgroup = 1
 		end
 	elseif  happiness > 100 then
 		call leds.top(32,32,0)
-		if change == 1 then
+		if change == 1 or oldhappinessgroup != 2 then
 			call sound.system(6)
+			oldhappinessgroup = 2
 		end
 	else
 		call leds.top(32,0,0)
-		if change == 1 then
+		if change == 1 or oldhappinessgroup != 3 then
 			call sound.system(4)
+			oldhappinessgroup = 3
 		end
 	end
 
