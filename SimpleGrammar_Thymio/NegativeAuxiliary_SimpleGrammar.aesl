@@ -125,7 +125,7 @@ onevent prox
 	
 
 	if phraseComplete == 1 then
-		emit phraseComplete [phraseID, upscalable]
+		emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
 	end
 	
 	if phraseID <= 0 then

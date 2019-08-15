@@ -10,6 +10,9 @@ var value[] = [65, 78, 68] 			# the ASCII code every letter of the word as an ar
 var class = 14								# category - conjunction in this case
 var coreclass = 0			# if the class is the core of a phrase
 
+# global knowledge
+var totalNumberOfRobots = 5	# the total number of robots to be assembled
+
 # grammaticality judgements
 var maxclass = class 	# maximal phrase category achieved, e.g. NP, VP, construction etc.
 var phraseID = 0			# id of the phrase containing the word
@@ -17,7 +20,7 @@ var phrasetype = 0		# type of the phrase corresponding to the phraseID
 var oldphraseID = 0	# if superceding phrase, used to notify all other members of the same phrase
 var phraseComplete = 0	# if the phrase is complete
 var constructionComplete = 0	# if the whole construction is complete
-#var phraseIDsInPhrase[4]	# where the IDs of all absorbed phrases are stored
+var phraseIDsInPhrase[2]	# where the IDs of all absorbed phrases are stored
 var highestpid = 0	# highest phraseID below the current robot
 var phrasestart = -1
 var phraseend = -1
@@ -48,52 +51,10 @@ var bool = 0
 var i = 0
 var j = 0
 
+# completion check variables: be can be used as a transitive or intransitive verb in some circumstances
+var cons2comp[] = [0,class,0]
+
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#---------------------------------------------------------------------------constructions-------------------------------------------------------------------------------------------------
-# constructions: 100
-var c0[] = [102]	# VP
-var c1[] = [105]	# ADVP
-var c2[] = [100,14,100]	# construction + CONJ + construction
-var c3[] = [100,15,100]	# construction + SUB + construction
-
-# NPs: 101
-var np0[] = [8,1]		# DET + N
-var np1[] = [8,104,1]	# DEP+ ADJP + N
-var np2[] = [9]	# PRO
-
-# VPs: 102
-var vp0[] = [101,2]		# NP + intransV
-var vp1[] = [101,3,101]	# NP + transV + NP
-var vp2[] = [101,16,101,101]	# NP + transV2 + NP + NP
-var vp3[] = [101,4,104]	# NP + be + ADJP
-var vp4[] = [101, 2,103]	# NP + intransV + PP
-var vp5[] = [101,3,101,103]	# NP + transV + NP + PP
-var vp6[] = [101,16,101,101,103]	# NP + transV2 + NP + NP + PP
-var vp7[] = [101,17,10,2]	# NP + do + NEG + intransV
-var vp8[] = [101,17,10,3,101]	# NP + do + NEG + transV + NP
-var vp9[] = [101,17,10,16,101,101]	# NP + do + NEG + transV2 + NP + NP
-var vp10[] = [101,17,10,2,103]	# NP + do + NEG + intransV + PP
-var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
-var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
-var vp13[] = [101,4,10]	# NP + be + NEG
-var vp14[] = [101,4,10,104]	#NP + be + NEG + ADJP
-var vp15[] = [101,4,10,101]	#NP + be + NEG + ADJP
-
-# PPs: 103
-var pp0[] = [11,101]	# P + NP
-var pp1[] = [103,103]	# PP + PP
-var pp2[] = [103,14,103]	# PP + CONJ + PP
-
-# ADJP: 104
-var adjp0[] = [7]	# ADJ
-var adjp1[] = [7,104]	# ADJ + ADJP
-var adjp2[] = [7,14,104]	# ADJ + CONJ + ADJP
-var adjp3[] = [104,14,104]	# ADJP + CONJ + ADJP
-
-# ADVP:105
-var advp0[] = [102,13]	# VP + ADV
-
-#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------functions----------------------------------------------------------------------------------------------------
 
 # resetting the leds so that no previous colour setting interferes
@@ -101,8 +62,6 @@ call leds.top(0,0,0)
 
 # enabling communication
 call prox.comm.enable(1)
-
-timer.period[0] = 2000
 
 #----------------------------------------------------------------------------END INITIALISATION----------------------------------------------------------------------------------
 
@@ -177,7 +136,7 @@ onevent prox
 	if constructionComplete == 1 then
 		emit constructionComplete [phraseID]
 	elseif phraseComplete == 1 then
-		emit phraseComplete [phraseID, upscalable]
+		emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
 	end
 	
 	
@@ -187,7 +146,6 @@ onevent prox
 	# if there are no neighbours, set colour to white
 	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
 		id = 0
-		phraseID = 0
 		upscalable = 1
 		call leds.top(32,32,32)
 		callsub reset
@@ -310,16 +268,52 @@ onevent supercede
 		end
 	end
 
-# emit phraseComplete [phraseID, upscalable]
+# emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
 onevent phraseComplete
 	if event.args[0] == phraseID then
 		phraseComplete = 1
 		upscalable = event.args[1]
+	elseif event.args[3] == id + 1 and (event.args[2] == 102 or event.args[2] == 105 or event.args[2] == 100) and cons2comp[2] == 0 then
+		higherPhrase = 1
+		phrasetype = 100
+		phraseIDsInPhrase[1] = event.args[0]
+		cons2comp[2] = 100
+		phraseend = event.args[4]
+		if cons2comp[0] == 100 then
+			phraseComplete = 1
+			maxclass = 100
+			if phrasestart == 1 and phraseend == totalNumberOfRobots then
+				constructionComplete = 1
+				emit constructionComplete [phraseIDsInPhrase[0]]			
+				emit constructionComplete [phraseIDsInPhrase[1]]					
+			end
+		else
+			phraseComplete = 0
+			constructionComplete = 0
+		end
+	elseif event.args[4] == id -1 and (event.args[2] == 102 or event.args[2] == 105 or event.args[2] == 100) and cons2comp[0] == 0 then
+		higherPhrase = 1
+		phrasetype = 100
+		phraseIDsInPhrase[0] = event.args[0]
+		cons2comp[0] = 100
+		phrasestart = event.args[3]
+		if cons2comp[2] == 100 then
+			phraseComplete = 1
+			maxclass = 100
+			if phrasestart == 1 and phraseend == totalNumberOfRobots then
+				constructionComplete = 1
+				emit constructionComplete [phraseIDsInPhrase[0]]			
+				emit constructionComplete [phraseIDsInPhrase[1]]		
+			end		
+		else
+			phraseComplete = 0
+			constructionComplete = 0
+		end
 	end
 	
 # emit constructionComplete [phraseID]
 onevent constructionComplete
-	if event.args[0] == phraseID then
+	if event.args[0] == phraseID and phrasetype != 100 then
 		constructionComplete = 1
 		upscalable = 1
 	end
@@ -363,6 +357,8 @@ onevent updateDeclination
 	
 #----------------------------------------------------------------R E S E T T I N G-----------------------------------------------------------------------------------------------------
 sub reset
+	cons2comp = [0,class,0]
+	phraseIDsInPhrase = [0,0]
 	constructionComplete = 0
 	phraseComplete = 0
 	updateSuccessful = 0
@@ -382,4 +378,5 @@ sub reset
 	phrasecore = 0
 	higherPhrase = 0
 	updateComplete = 1
+	bl = 0
 	bl = 0

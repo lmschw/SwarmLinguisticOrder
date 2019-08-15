@@ -32,10 +32,6 @@ var higherPhrase = 0	# does the robot belong to another phrase
 var bl = 0			# keep sending out the block event?
 var lastPhraseAddition = 0	# ID of the core of the last phrase added
 
-
-# storage variables
-var consPossible[4] = [1,1,0,0]
-
 # general variables
 var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the backhigh
 var oldid = 0				# to check if there has been a change in the order
@@ -43,9 +39,6 @@ var pid = 0					# underlying phrase id
 var oldpid = 0				# to check if there has been a change in the pid
 
 # aux variables
-#var prevback = 0
-#var prevfront = 0
-var bool = 0
 var i = 0
 var j = 0
 
@@ -150,7 +143,7 @@ onevent prox
 			constructionComplete = 1
 			emit constructionComplete [phraseID]
 		elseif  phraseComplete == 1 then
-			emit phraseComplete [phraseID, upscalable]
+			emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
 		end
 	end
 	
@@ -264,11 +257,11 @@ onevent searchPrevCompletion
 #var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
 #	emit checkUpdate [id{0}, phrasecore{1}, maxclass{2}, phraseend{3}]
 onevent checkUpdate
-	bool = 0
+	i = 0
 	j = 0
 	# sender further down the line
 	if event.args[0] == phraseend + 1 then #if1
-		bool = 1
+		i = 1
 		updateSuccessful = 0
 		upscalable = 0
 		#var vp2[] = [101,16,101,101]	# NP + transV2 + NP + NP
@@ -387,19 +380,18 @@ onevent checkUpdate
 				phraseComplete = 0
 			end	#end if17
 	end	#end if1
-	if bool == 1 or j == 1 then	#if18
+	if i == 1 or j == 1 then	#if18
 		if updateSuccessful == 1 then	#if19
 			higherPhrase = 1
-			if bool == 1 then	#if20
+			if i == 1 then	#if20
 				phraseend = event.args[3]
 			elseif j == 1 then
 				phrasestart = event.args[3]
 			end	#end if20
-			
 			lastPhraseAddition = event.args[0]
 			emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
 			if phraseComplete == 1 then	#if21
-				emit phraseComplete [phraseID, upscalable]
+				emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
 			end	#end if21
 		else
 			if phraseComplete == 1 then	#if22
@@ -443,7 +435,6 @@ onevent phraseComplete
 onevent constructionComplete
 	if event.args[0] == phraseID then
 		constructionComplete = 1
-		upscalable = 1
 	end
 
 #	emit block [id, phrasecore, maxclass]	

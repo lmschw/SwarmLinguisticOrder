@@ -158,7 +158,7 @@ onevent prox
 
 	if phraseComplete == 1 then
 		#maxclass = phrasetype
-		emit phraseComplete [phraseID, upscalable]
+		emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
 	else
 		upscalable = 0
 	end
@@ -316,7 +316,7 @@ onevent checkUpdate
 			emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
 			if phraseComplete == 1 then
 				maxclass = phrasetype
-				emit phraseComplete [phraseID, upscalable]
+				emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
 			end
 		else
 			if phraseComplete == 1 then

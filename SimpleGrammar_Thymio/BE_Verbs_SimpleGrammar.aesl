@@ -169,7 +169,7 @@ onevent prox
 			constructionComplete = 1
 			emit constructionComplete [phraseID]
 		elseif  phraseComplete == 1 then
-			emit phraseComplete [phraseID, upscalable]
+			emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
 		end
 	end
 	
@@ -421,7 +421,7 @@ onevent checkUpdate
 			lastPhraseAddition = event.args[0]
 			emit successfulUpdateConfirmation [id, event.args[0], phraseID, phrasetype, phraseComplete, upscalable]
 			if phraseComplete == 1 then
-				emit phraseComplete [phraseID, upscalable]
+				emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
 			end
 		else
 			if phraseComplete == 1 then
