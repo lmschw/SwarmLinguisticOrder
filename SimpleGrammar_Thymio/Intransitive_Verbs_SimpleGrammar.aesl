@@ -1,5 +1,5 @@
 # WALKS
-# VERBS: INTRANS
+# VERBS: INTRANSITIVE
 
 #----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
@@ -9,6 +9,9 @@
 var value[] = [87,65,76,75,83] 			# the ASCII code every letter of the word as an array - 'walks'
 var class = 2								# category - be  in this case
 var coreclass = 1			# if the class is the core of a phrase
+
+# global knowledge
+var totalNumberOfRobots = 2	# the total number of robots to be assembled
 
 # grammaticality judgements
 var maxclass = class	# maximal phrase category achieved, e.g. NP, VP, construction etc.
@@ -145,36 +148,28 @@ onevent prox
 		emit supercede [id, oldphraseID, phraseID, phrasetype, phraseComplete, upscalable]
 	end
 	
-		if phraseID <= 0 or (phrasestart == id and phraseend == id) then
+	if phraseID <= 0 or (phrasestart == id and phraseend == id) then
 		phraseComplete = 0
 	end
 	
-	if phraseID > 0 and id > 0 then
-		if constructionComplete == 1 or (upscalable == 1 and phraseComplete == 1) then
-			constructionComplete = 1
-			emit constructionComplete [phraseID]
-		elseif  phraseComplete == 1 then
-			constructionComplete = 0
-			emit phraseComplete [phraseID, upscalable]
-		end
-	else
-		constructionComplete = 0
-	end
-	
-
-	
-	
-	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
+	if phraseComplete == 1 and ((prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) or phraseend == totalNumberOfRobots) then
 		upscalable = 1
 	end
 	
+	if phraseID > 0 and id > 0 then
+		if constructionComplete == 1 or (phraseComplete == 1 and phraseend == totalNumberOfRobots and phrasestart == 1) then
+			constructionComplete = 1
+			emit constructionComplete [phraseID]
+		elseif  phraseComplete == 1 then
+			emit phraseComplete [phraseID, upscalable]
+		end
+	end
+	
 	# if there are no neighbours, set colour to white
-	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
+	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
 		id = 0
-		phraseID = 0
-		upscalable = 0
-		call leds.top(32,32,32)
 		callsub reset
+		call leds.top(32,32,32)
 	elseif constructionComplete == 1 then
 		call leds.top(0,32,0)
 	elseif phraseComplete == 1 then

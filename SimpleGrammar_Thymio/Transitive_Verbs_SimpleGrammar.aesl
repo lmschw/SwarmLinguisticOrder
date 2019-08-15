@@ -10,6 +10,9 @@ var value[] = [67,72,65,83,69,83] 			# the ASCII code every letter of the word a
 var class = 3								# category - transitive verb  in this case
 var coreclass = 1			# if the class is the core of a phrase
 
+# global knowledge
+var totalNumberOfRobots = 4	# the total number of robots to be assembled
+
 # grammaticality judgements
 var maxclass = class	# maximal phrase category achieved, e.g. NP, VP, construction etc.
 var phraseID = 0			# id of the phrase containing the word
@@ -56,8 +59,6 @@ var trans_vp11comp[] = [0,0,0,class,0,0]
 
 # enabling communication
 call prox.comm.enable(1)
-
-timer.period[0] = 2000
 
 #----------------------------------------------------------------------------END INITIALISATION----------------------------------------------------------------------------------
 
@@ -135,32 +136,26 @@ onevent prox
 		emit supercede [id, oldphraseID, phraseID, phrasetype, phraseComplete, upscalable]
 	end
 	
-	if phraseID > 0 and id > 0 then
-		if constructionComplete == 1 or (upscalable == 1 and phraseComplete == 1) then
-			constructionComplete = 1
-			emit constructionComplete [phraseID]
-		elseif  phraseComplete == 1 then
-			constructionComplete = 0
-			emit phraseComplete [phraseID, upscalable]
-		end
-	else
-		constructionComplete = 0
-	end
-	
 	if phraseID <= 0 or (phrasestart == id and phraseend == id) then
 		phraseComplete = 0
 	end
 	
-	
-	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
+	if phraseComplete == 1 and ((prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) or phraseend == totalNumberOfRobots) then
 		upscalable = 1
+	end
+	
+	if phraseID > 0 and id > 0 then
+		if constructionComplete == 1 or (phraseComplete == 1 and phraseend == totalNumberOfRobots and phrasestart == 1) then
+			constructionComplete = 1
+			emit constructionComplete [phraseID]
+		elseif  phraseComplete == 1 then
+			emit phraseComplete [phraseID, upscalable]
+		end
 	end
 	
 	# if there are no neighbours, set colour to white
 	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
 		id = 0
-		phraseID = 0
-		upscalable = 0
 		callsub reset
 		call leds.top(32,32,32)
 	elseif constructionComplete == 1 then
@@ -324,7 +319,7 @@ onevent checkUpdate
 	#	emit checkUpdate [id{0}, phrasecore{1}, maxclass{2}, phrasestart{3}]
 
 	# sender earlier in the line
-	elseif event.args[1] == id then
+	elseif event.args[1] == id and event.args[0] < id then
 		j = 1
 		updateSuccessful = 0
 		#var vp1[] = [101,3,101]	# NP + transV + NP
@@ -390,13 +385,11 @@ onevent checkUpdate
 			end	#end if17
 	end	#end if1
 	if bool == 1 or j == 1 then	#if18
-		if updateSuccessful == 1 then	#if19
+		if updateSuccessful == 1 and event.args[3] > 0  then	#if19
 			higherPhrase = 1
 			if bool == 1 then	#if20
-				i = phraseend
 				phraseend = event.args[3]
-			elseif j == 1 then
-				i = phrasestart
+			elseif j == 1 and event.args[3] < id then
 				phrasestart = event.args[3]
 			end	#end if20
 			

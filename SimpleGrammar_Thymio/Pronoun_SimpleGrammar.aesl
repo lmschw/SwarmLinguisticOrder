@@ -141,6 +141,10 @@ onevent prox
 		phraseComplete = 0
 	end
 	
+	if  (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) and maxclass == 101 then
+		phraseComplete = 1
+	end
+	
 	
 	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
 		upscalable = 1
