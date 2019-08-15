@@ -362,7 +362,6 @@ onevent checkUpdate
 					upscalable = 0
 				end	#end if15
 			end	#end if14
-		end	#end if7
 		#var vp8[] = [101,17,10,3,101]	# NP + do + NEG + transV + NP
 		#var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
 		elseif event.args[2] == 17 then
@@ -383,6 +382,7 @@ onevent checkUpdate
 				phraseComplete = 0
 				upscalable = 0
 			end	#end if17
+		end #end if7
 	end	#end if1
 	if bool == 1 or j == 1 then	#if18
 		if updateSuccessful == 1 and event.args[3] > 0  then	#if19

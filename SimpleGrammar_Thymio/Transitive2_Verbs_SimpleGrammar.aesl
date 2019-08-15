@@ -360,7 +360,6 @@ onevent checkUpdate
 					phraseComplete = 0
 				end	#end if15
 			end	#end if14
-		end	#end if7
 		#var vp9[] = [101,17,10,16,101,101]	# NP + do + NEG + transV2 + NP + NP
 		#var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
 		elseif event.args[2] == 17 then
@@ -379,6 +378,7 @@ onevent checkUpdate
 				trans_vp12comp[2] = 10
 				phraseComplete = 0
 			end	#end if17
+		end	#end if7
 	end	#end if1
 	if i == 1 or j == 1 then	#if18
 		if updateSuccessful == 1 then	#if19
