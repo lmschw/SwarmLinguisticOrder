@@ -53,8 +53,6 @@ call leds.top(0,0,0)
 # enabling communication
 call prox.comm.enable(1)
 
-timer.period[0] = 2000
-
 #----------------------------------------------------------------------------END INITIALISATION----------------------------------------------------------------------------------
 
 onevent prox	
