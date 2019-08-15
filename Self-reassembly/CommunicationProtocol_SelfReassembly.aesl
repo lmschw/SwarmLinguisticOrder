@@ -1,11 +1,14 @@
 # this program allows robots to establish lines and keep moving within these lines.
 
-var searchspeed = 200	# movement speed when not part of a line
-var linespeed = 100	# speed of the followers
-var leaderspeed = 80	# speed of the line leader
+var minsearchspeed = 200	# movement speed when not part of a line
+var searchspeed	# the actual speed when not part of a line
+var factor = 0	# the factor that changes the speed of the robot from time to time while searching
+var linespeed = 150	# speed of the followers
+var leaderspeed = 50	# speed of the line leader
 var following = 0	# if the robot is following another robot, following = 1
 var followed = 0	# if the robot has another robot following it, followed = 1
 var maxdistance = 3000	# defines how close a robot will get to an obstacle
+var robotdistance = 2000
 var moving = 1	# is the robot ready to move?
 
 var counter = 0		# used to keep track of the backward movement
@@ -18,19 +21,25 @@ var rightsum	# sum of the right distance sensors
 var id = 0	# robot's ID within its line
 
 # the robot starts out moving in a straight line
-motor.left.target = searchspeed
-motor.right.target = searchspeed
+motor.left.target = minsearchspeed
+motor.right.target = minsearchspeed
 
+timer.period[0] = 2000
 
 #---------------------------------------------------------------------P R O X------------------------------------------------------------------------------------
 onevent prox
 #---------------------------------------------------------------------COMMUNICATION TOGGLE-----------------------------------------------------------
 	# only enable communication if anything is near the robot; send out max possible receivable value when communication is enabled
-	if prox.horizontal[0] > maxdistance - 1000 or prox.horizontal[1] > maxdistance - 1000 or prox.horizontal[2] > maxdistance - 1000 or prox.horizontal[3] > maxdistance - 1000 or prox.horizontal[4] > maxdistance - 1000 or prox.horizontal[5] > maxdistance - 1000 or prox.horizontal[6] > maxdistance - 1000 then
-		call prox.comm.enable(1)
-		prox.comm.tx = 2056
+	if prox.horizontal[0] > robotdistance or prox.horizontal[1] > robotdistance or prox.horizontal[2] > robotdistance or prox.horizontal[3] > robotdistance or prox.horizontal[4] > robotdistance or prox.horizontal[5] > robotdistance or prox.horizontal[6] > robotdistance then
+		if id == 0 then
+			call prox.comm.enable(1)
+			prox.comm.tx = 2056
+		end
 	else
 		call prox.comm.enable(0)
+		id = 0
+		following = 0
+		followed = 0
 	end
 	
 #----------------------------------------------------------------------FOLLOWER/LEADER-------------------------------------------------------------
@@ -50,6 +59,11 @@ onevent prox
 			end		
 		end
 	end
+	
+	if (followed == 1 and prox.horizontal[5] < 10 and prox.horizontal[5] < -10 and prox.horizontal[6] < 10 and prox.horizontal[6] > -10) or (followed == 1 and id == 1) then
+		id = 0
+		emit recountID
+	end
 
 #----------------------------------------------------------------------MOVEMENT-------------------------------------------------------------------
 	if moving == 1 then
@@ -62,13 +76,13 @@ onevent prox
 				following = 0
 				id = 0
 			# if the robot is too close to its leader, it walks backwards. This is done in case the leader has to back up
-			elseif prox.horizontal[2] > 3300 then
-				motor.left.target = -linespeed
-				motor.right.target = -linespeed
+			elseif prox.horizontal[2] > 4000 then
+				motor.left.target = -linespeed - (id-1)*20
+				motor.right.target = -linespeed - (id-1)*20
 			# if the left side sensors measure approximately the same values as the right side sensors, it can be assumed that the robot is straight behind its leader
 			elseif (leftsum < rightsum +100 and leftsum > rightsum - 100) then
-				motor.left.target = linespeed
-				motor.right.target = linespeed
+				motor.left.target = linespeed - (id-1)*20
+				motor.right.target = linespeed - (id-1)*20
 			# turn left if the robot's right side is closer to the leader
 			elseif leftsum < rightsum then
 				motor.right.target = 0
@@ -77,17 +91,17 @@ onevent prox
 					motor.left.target = linespeed + 1/4 * linespeed
 				# turn a little less when the outermost sensor value is lower to alllow for slighter adjustments
 				else
-					motor.left.target = linespeed
+					motor.left.target = linespeed - (id-1)*20
 				end
 			# turn right if the robot's left side is closer to the leader
 			else
 				motor.left.target = 0
 				# turn more when the outermost sensor value is higher
 				if prox.horizontal[4] < prox.horizontal[3] then
-					motor.right.target = linespeed + 1/4 * linespeed
+					motor.right.target = linespeed + 1/4 * linespeed - (id-1)*20
 				# turn a little less when the outermost sensor value is lower to alllow for slighter adjustments
 				else
-					motor.right.target = linespeed
+					motor.right.target = linespeed - (id-1)*20
 				end
 			end
 		else
@@ -254,3 +268,11 @@ onevent recountID
 		# send out the robot's ID
 		prox.comm.tx = id
 	end
+	
+onevent timer0
+			call math.rand(factor)
+			if factor < 0 then
+				factor = factor * -1
+			end
+			call math.sqrt(factor,factor)
+			searchspeed = minsearchspeed + factor
