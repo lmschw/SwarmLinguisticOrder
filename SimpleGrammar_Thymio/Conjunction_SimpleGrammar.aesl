@@ -10,9 +10,6 @@ var value[] = [65, 78, 68] 			# the ASCII code every letter of the word as an ar
 var class = 14								# category - conjunction in this case
 var coreclass = 0			# if the class is the core of a phrase
 
-# global knowledge
-var totalNumberOfRobots = 5	# the total number of robots to be assembled
-
 # grammaticality judgements
 var maxclass = class 	# maximal phrase category achieved, e.g. NP, VP, construction etc.
 var phraseID = 0			# id of the phrase containing the word
@@ -32,6 +29,8 @@ var higherPhrase = 0
 var cu = 0		# keep sending out checkupdate events?
 var bl = 0			# keep sending out the block event?
 var lastPhraseAddition = 0	# ID of the core of the last phrase added
+
+var eol = 0	# is the last robot the last robot in the line
 
 # storage variables
 var consPossible[4] = [1,1,0,0]
@@ -134,7 +133,8 @@ onevent prox
 	end
 		
 	if constructionComplete == 1 then
-		emit constructionComplete [phraseID]
+		emit constructionComplete [phraseIDsInPhrase[0]]
+		emit constructionComplete [phraseIDsInPhrase[1]]
 	elseif phraseComplete == 1 then
 		emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
 	end
@@ -143,6 +143,11 @@ onevent prox
 	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
 		upscalable = 1
 	end
+	
+	if  prox.horizontal[2] < 10 and prox.horizontal[2] > -10 then
+		emit endOfLine [id]
+	end
+	
 	# if there are no neighbours, set colour to white
 	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
 		id = 0
@@ -282,7 +287,7 @@ onevent phraseComplete
 		if cons2comp[0] == 100 then
 			phraseComplete = 1
 			maxclass = 100
-			if phrasestart == 1 and phraseend == totalNumberOfRobots then
+			if phrasestart == 1 and eol == 1 then
 				constructionComplete = 1
 				emit constructionComplete [phraseIDsInPhrase[0]]			
 				emit constructionComplete [phraseIDsInPhrase[1]]					
@@ -300,7 +305,7 @@ onevent phraseComplete
 		if cons2comp[2] == 100 then
 			phraseComplete = 1
 			maxclass = 100
-			if phrasestart == 1 and phraseend == totalNumberOfRobots then
+			if phrasestart == 1 and eol == 1 then
 				constructionComplete = 1
 				emit constructionComplete [phraseIDsInPhrase[0]]			
 				emit constructionComplete [phraseIDsInPhrase[1]]		
@@ -320,6 +325,19 @@ onevent constructionComplete
 	
 # block is also only relevant for core classes
 #	emit block [id, phrasecore, maxclass]	
+
+# emit endOfLine [id{0}]	
+onevent endOfLine
+	if event.args[0] == phraseend and phrasestart == 1 and phraseComplete == 1 then
+		constructionComplete = 1
+		eol = 1
+	elseif  event.args[0] == phraseend and phraseComplete == 1 then
+		upscalable = 1
+		eol = 1
+	elseif higherPhrase == 0 then
+		constructionComplete = 0
+		eol = 0
+	end
 
 #-------------------------------------------------------------RESPONSES------------------------------------------------------------------------------------------------------------------
 #	emit successfulUpdateConfirmation [id{0}, event.args[0]{1}, phraseID{2}, phrasetype{3}, phraseComplete{4}, upscalable{5}]

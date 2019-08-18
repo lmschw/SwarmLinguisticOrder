@@ -10,9 +10,6 @@ var value[] = [80,85,84,83] 			# the ASCII code every letter of the word as an a
 var class = 16								# category - transitive verb  in this case
 var coreclass = 1			# if the class is the core of a phrase
 
-# global knowledge
-var totalNumberOfRobots = 6	# the total number of robots to be assembled
-
 # grammaticality judgements
 var maxclass = class	# maximal phrase category achieved, e.g. NP, VP, construction etc.
 var phraseID = 0			# id of the phrase containing the word
@@ -134,13 +131,12 @@ onevent prox
 		phraseComplete = 0
 	end
 	
-	if phraseComplete == 1 and ((prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) or phraseend == totalNumberOfRobots) then
-		upscalable = 1
+	if prox.horizontal[2] < 10 and prox.horizontal[2] > -10  then
+		emit endOfLine [id]
 	end
 	
 	if phraseID > 0 and id > 0 then
-		if constructionComplete == 1 or (phraseComplete == 1 and phraseend == totalNumberOfRobots and phrasestart == 1) then
-			constructionComplete = 1
+		if constructionComplete == 1  then
 			emit constructionComplete [phraseID]
 		elseif  phraseComplete == 1 then
 			emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
@@ -446,6 +442,16 @@ onevent block
 		else
 			upscalable = 0
 		end
+	end
+
+# emit endOfLine [id{0}]	
+onevent endOfLine
+	if event.args[0] == phraseend and phrasestart == 1 and phraseComplete == 1 then
+		constructionComplete = 1
+	elseif  event.args[0] == phraseend and phraseComplete == 1 then
+		upscalable = 1
+	else
+		constructionComplete = 0
 	end
 	
 #-------------------------------------------------------------RESPONSES------------------------------------------------------------------------------------------------------------------

@@ -143,6 +143,10 @@ onevent prox
 	else
 		constructionComplete = 0
 	end
+
+	if  prox.horizontal[2] < 10 and prox.horizontal[2] > -10 then
+		emit endOfLine [id]
+	end
 	
 	# if there are no neighbours, set colour to white
 	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
@@ -351,6 +355,16 @@ onevent block
 		else
 			upscalable = 0
 		end
+	end
+	
+# emit endOfLine [id{0}]	
+onevent endOfLine
+	if event.args[0] == phraseend and phrasestart == 1 and phraseComplete == 1 then
+		constructionComplete = 1
+	elseif  event.args[0] == phraseend and phraseComplete == 1 then
+		upscalable = 1
+	elseif higherPhrase == 0 then
+		constructionComplete = 0
 	end
 	
 #-------------------------------------------------------------RESPONSES------------------------------------------------------------------------------------------------------------------

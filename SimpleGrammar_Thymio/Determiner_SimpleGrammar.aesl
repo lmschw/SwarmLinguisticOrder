@@ -155,6 +155,11 @@ onevent prox
 		upscalable = 1
 	end
 	
+	if  prox.horizontal[2] < 10 and prox.horizontal[2] > -10 then
+		emit endOfLine [id]
+	end
+
+	
 	# if there are no neighbours, set colour to white
 	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
 		id = 0
