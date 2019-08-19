@@ -200,7 +200,7 @@ onevent buttons
 	# if the forward button is pressed and hints are enabled, the robot will display a colour which indicates how happy it is with its next neighbour.  If that neighbour is perfect but possibly with another neighbour on the other side, it will light up cyan. It will also light up half circle around the button to indicate the direction
 	if  button.forward == 1 and hints_ENABLED == 1 then
 		displayColour = 1
-		call leds.circle(0,0,15,15,15,15,15,0)
+		call leds.circle(15,15,15,0,0,0,15,15)
 		if nextMatch > 0 then
 			call leds.top(0,32,32)
 		elseif nextval == 0 then
