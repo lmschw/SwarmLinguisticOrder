@@ -238,7 +238,7 @@ onevent searchNextCompletion
 		else
 			emit checkUpdate [id, phrasecore, maxclass, id]
 		end
-	elseif phraseID != event.args[1] and event.args[2] == id-1 and  (event.args[3] !=  101 and event.args[3] != 102 and event.args[3] != 104 )then
+	elseif phraseID != event.args[1] and event.args[2] == id-1 and  (event.args[3] !=  101 and event.args[3] != 102 and event.args[3] != 104 and event.args[3] != 100)then
 		phrasecore = event.args[0]
 		bl = 1
 		emit block [id, phrasecore, maxclass]

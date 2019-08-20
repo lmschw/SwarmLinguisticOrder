@@ -138,9 +138,11 @@ onevent prox
 		phraseComplete = 0
 	end
 	
-	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
+	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10))  then
 		upscalable = 1
-		constructionComplete = 1
+		if phrasestart == 1  then
+			constructionComplete = 1
+		end
 	end
 	
 	if phraseID > 0 and id > 0 then
@@ -230,11 +232,8 @@ onevent neighbour_value
 #-----------------------------------------------------------------SEARCH EVENTS------------------------------------------------------------------------------------------------------
 # cannot complete a construction as a next.
 #	emit searchNextCompletion [id{0}, phraseID{1}, phraseend{2}, 	phrasetype{3}]
-
-# can only complete a ADVP
-#	emit searchNextCompletion [id{0}, phraseID{1}, phrasestart{2}, 	phrasetype{3}]	
-onevent searchPrevCompletion
-	if  phraseID != event.args[1] and maxclass == 102 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  105)  and event.args[2] == id+1 then
+onevent searchNextCompletion
+	if  phraseID != event.args[1] and (maxclass == 102 or maxclass == 100)  and upscalable == 1 and  updateComplete == 1 and (event.args[3] == 100)  and event.args[2] == id+1 then
 		bl = 0
 		phrasecore = event.args[0]
 		updateComplete = 0
@@ -243,7 +242,25 @@ onevent searchPrevCompletion
 		else
 			emit checkUpdate [id, phrasecore, maxclass, id]
 		end
-	elseif phraseID != event.args[1] and event.args[2] == id+1 and  (event.args[3] !=  105 )then
+	elseif phraseID != event.args[1] and event.args[2] == id+1 and  (event.args[3] != 100) then
+		phrasecore = event.args[0]
+		bl = 1
+		emit block [id, phrasecore, maxclass]
+	end
+
+# can only complete a ADVP
+#	emit searchNextCompletion [id{0}, phraseID{1}, phrasestart{2}, 	phrasetype{3}]	
+onevent searchPrevCompletion
+	if  phraseID != event.args[1] and maxclass == 102 and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  105 or event.args[3] == 100)  and event.args[2] == id+1 then
+		bl = 0
+		phrasecore = event.args[0]
+		updateComplete = 0
+		if phrasestart != -1 and phrasestart != 0 then
+			emit checkUpdate [id, phrasecore, maxclass, phrasestart]
+		else
+			emit checkUpdate [id, phrasecore, maxclass, id]
+		end
+	elseif phraseID != event.args[1] and event.args[2] == id+1 and  (event.args[3] !=  105 and event.args[3] != 100) then
 		phrasecore = event.args[0]
 		bl = 1
 		emit block [id, phrasecore, maxclass]
