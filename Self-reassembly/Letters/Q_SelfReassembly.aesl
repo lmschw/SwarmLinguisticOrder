@@ -1,0 +1,547 @@
+# this program allows the robot to decide how happy it is with the position the user puts it in with regards to the values assigned to its neighbours. It allows the administrator to specify a word which will constitute the solution. Multiple options can be configured in the OPTIONS section to alter the behaviour of the robots.
+
+#----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------BEGIN OPTIONS-----------------------------------------------------------------------------------------
+var changerate = 1 					# the higher the rate, the slower the escape; determines how long the robot waits if it is unhappy; set changerate = 0 to prevent escape behaviour
+var sound = 0								# 1: sounds are played upon colour change; 0: muted
+
+# solution options
+var solutionAvailable = 1				# set to 1 if a solution is given and to 0 if free play
+var solutionWord[] = [67,65,84,83]	# enter the solution word as an array of the ASCII codes of the letters: 'cats'
+var lengthSolution = 4				# enter the number of letters in the word
+
+# ---------------------------------------------------------------------------END OPTIONS-----------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
+
+#////////////////////////////////////////////////////////////////////////////general variables
+var value = 81 			# the ASCII code of the letter
+var id = 0 					# the communication ID. Corresponds to the number of the robot in the line starting from the back
+var nextval = 0 			# the value of the next robot. This is the robot in front
+var prevval = 0			# the value of the previous robot. This is the robot behind this robot
+var nextsave = 0 		# the last value stored for the next robot. Used to measure if the neighbours have changed
+var prevsave = 0 		# the last value stored for the previous robot. Used to measure if the neighbours have changed
+var change					# boolean variable to indicate if there have been any changes
+var walksies = 0			# counter to determine when to stop moving
+var changeratemax = 10000	# the maximum number used to model the happiness decrease speed
+var changerateupdate = changeratemax	# the variable used to keep track of the happiness decrease rate
+var happiness = -1		# how happy the robot is where it is at the moment. -1 if it does not have neighbours
+var oldhappinessgroup = -1	# used to emit sounds when robot switches colour due to automatic decrease
+
+#////////////////////////////////////////////////////////////////////////////movement variables
+var minsearchspeed = 50	# movement speed when not part of a line
+var searchspeed	# the actual speed when not part of a line
+var factor = 0	# the factor that changes the speed of the robot from time to time while searching
+var linespeed = 30	# speed of the followers
+var leaderspeed = 10	# speed of the line leader
+var following = 0	# if the robot is following another robot, following = 1
+var followed = 0	# if the robot has another robot following it, followed = 1
+var maxdistance = 3000	# defines how close a robot will get to an obstacle
+var robotdistance = 2000
+var moving = 1	# is the robot ready to move?
+
+var counter = 0		# used to keep track of the backward movement
+var countermax = 10	# used to keep track of the backward movement
+var backprotocol = 0	# is the robot moving backwards?
+
+var leftsum	# sum of the left distance sensors
+var rightsum	# sum of the right distance sensors
+
+#////////////////////////////////////////////////////////////////////////////solution option variables
+var storagesize = 15	# number of potential matches that will be considered
+var solutionPrevs[15]	#stores the previous letters in the solution
+var solutionNexts[15] 	# stores the next letters in the solution
+var numberOfMatches = 0	# stores the number of occurrences of the letter in the solution word
+var i = 0						# auxiliary variables for loops
+var j = 0						# auxiliary variables for loops
+var prevMatch = 0		# boolean to indicate if the previous robots value matches the value's position in the solution word
+var nextMatch = 0		# boolean to indicate if the next robots value matches the value's position in the solution word
+var fullMatch = 0			# boolean to indicate if both neighbours match the solution word
+
+#////////////////////////////////////////////////////////////////////////////frequencies
+var prev[27]				# array storing all the frequencies for the previous values
+var next[27]				# array storing all the frequencies for the subsequent values
+
+# initializing the context frequencies []a. abc + space
+prev[0] = 30
+prev[1] = 0
+prev[2] = 30
+prev[3] = 30
+prev[4] = 393
+prev[5] = 0
+prev[6] = 0
+prev[7] = 0
+prev[8] = 60
+prev[9] = 0
+prev[10] = 0
+prev[11] = 0
+prev[12] = 0
+prev[13] = 30
+prev[14] = 0
+prev[15] = 0
+prev[16] = 0
+prev[17] = 0
+prev[18] = 60
+prev[19] = 0
+prev[20] = 0
+prev[21] = 0
+prev[22] = 0
+prev[23] = 0
+prev[24] = 0
+prev[25] = 0
+prev[26] = 363
+
+# initializing the context frequencies a[]. abc + space
+next[0] = 0
+next[1] = 0
+next[2] = 0
+next[3] = 0
+next[4] = 0
+next[5] = 0
+next[6] = 0
+next[7] = 0
+next[8] = 30
+next[9] = 0
+next[10] = 0
+next[11] = 0
+next[12] = 0
+next[13] = 0
+next[14] = 0
+next[15] = 0
+next[16] = 0
+next[17] = 0
+next[18] = 0
+next[19] = 0
+next[20] = 969
+next[21] = 0
+next[22] = 0
+next[23] = 0
+next[24] = 0
+next[25] = 0
+next[26] = 0
+
+#///////////////////////////////////////////////// create the solution environments
+# if a solution has been provided, then the robot iterates through the solution array and checks if the letter at that index is the same as its own value. If that is the case, it adds it to the solution environment arrays - substituting 26 for a missing value as the frequency values for 'space' are stored at index 26 in the frequency arrays. In the unlikely case that the storagesize should be exhausted, the robot stops iterating. Aseba does not allow dynamic size increases, therefore that is all that can be done at this point. If more solution environments are expected, the maximum storage size should be adapted at the variable declaration.
+if solutionAvailable == 1 then
+	i = 0
+	j = 0
+	while i < lengthSolution do
+		if solutionWord[i] == value then
+			# first letter of the word
+			if i == 0 and i != lengthSolution-1 then
+				solutionPrevs[j] = 26
+				solutionNexts[j] = solutionWord[i+1]
+				j++
+			# neither first nor last letter of the word
+			elseif i != 0 and i != lengthSolution-1 then
+				solutionPrevs[j] = solutionWord[i-1]
+				solutionNexts[j] = solutionWord[i+1]
+				j++
+			# last letter of the word
+			elseif i != 0 and i == lengthSolution-1 then
+				solutionPrevs[j] = solutionWord[i-1]
+				solutionNexts[j] = 26
+				j++
+			end
+			numberOfMatches++
+		end
+		# max number of solutions permitted by the storage size found
+		if j >= storagesize then
+			i = lengthSolution
+		else
+			i++
+		end
+	end
+end
+
+# resetting the leds so that no previous colour setting interferes
+call leds.top(0,0,0)
+
+# resetting the sound so that no previous sounds interfere
+call sound.system(-1)
+
+# the robot starts out moving in a straight line
+motor.left.target = minsearchspeed
+motor.right.target = minsearchspeed
+
+# setting the timer for the random speed change while searching
+timer.period[0] = 2000
+
+#----------------------------------------------------------------------------END INITIALISATION----------------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------G E N E R A L--------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN PROX BLOCK---------------------------------------------------------------------------------
+# this event is launched at regular intervals. Therefore, any code within the prox event will be executed regularly. 
+# this code segment handles the updates from the subroutines it calls and updates the colour
+onevent prox	
+
+#---------------------------------------------------------------------COMMUNICATION TOGGLE-----------------------------------------------------------
+	# only enable communication if anything is near the robot; send out max possible receivable value when communication is enabled
+	if prox.horizontal[0] > robotdistance or prox.horizontal[1] > robotdistance or prox.horizontal[2] > robotdistance or prox.horizontal[3] > robotdistance or prox.horizontal[4] > robotdistance or prox.horizontal[5] > robotdistance or prox.horizontal[6] > robotdistance then
+		if id == 0 then
+			call prox.comm.enable(1)
+			prox.comm.tx = 2056
+		end
+	else
+		call prox.comm.enable(0)
+		id = 0
+		following = 0
+		followed = 0
+	end
+	
+#----------------------------------------------------------------------FOLLOWER/LEADER-------------------------------------------------------------
+	# if the robot has an ID, it is ready to start moving again. In that case, it establishes if it is the last robot in the line, i.e. at the front. If so, it is not following any other robot. Otherwise, it is. It also keeps track of the fact if any other robot is following it.
+	if id > 0 then
+		moving = 1
+		prox.comm.tx = id
+		if prox.horizontal[2] < 10 and prox.horizontal[2] > -10 then
+			following = 0
+			followed = 1
+		else
+			following = 1
+			if prox.horizontal[5] > maxdistance -1000 or prox.horizontal[6] > maxdistance-1000 then
+				followed = 1
+			else
+				followed = 0
+			end		
+		end
+	end
+	
+	if (followed == 1 and prox.horizontal[5] < 10 and prox.horizontal[5] < -10 and prox.horizontal[6] < 10 and prox.horizontal[6] > -10) or (followed == 1 and id == 1) then
+		id = 0
+		emit recountID
+	end
+
+#----------------------------------------------------------------------MOVEMENT-------------------------------------------------------------------
+	if moving == 1 then
+			# if the robot is following another, it is entirely guided by its relative position to that robot. Unfortunately, it cannot distinguish between walls and the leader, so it may get shaken off at narrow turns.
+		if following == 1 then
+			leftsum = prox.horizontal[0] + prox.horizontal[1]
+			rightsum = prox.horizontal[3] + prox.horizontal[4]
+			# if the robot cannot sense the robot in front anymore, it will resume normal walking behaviour
+			if leftsum <10 and leftsum > 10 and rightsum < 10 and rightsum > 10 then
+				following = 0
+				id = 0
+			# if the robot is too close to its leader, it walks backwards. This is done in case the leader has to back up
+			elseif prox.horizontal[2] > 4000 then
+				motor.left.target = -linespeed - (id-1)*20
+				motor.right.target = -linespeed - (id-1)*20
+			# if the left side sensors measure approximately the same values as the right side sensors, it can be assumed that the robot is straight behind its leader
+			elseif (leftsum < rightsum +100 and leftsum > rightsum - 100) then
+				motor.left.target = linespeed - (id-1)*20
+				motor.right.target = linespeed - (id-1)*20
+			# turn left if the robot's right side is closer to the leader
+			elseif leftsum < rightsum then
+				motor.right.target = 0
+				# turn more when the outermost sensor value is higher
+				if prox.horizontal[0] < prox.horizontal[1] then
+					motor.left.target = linespeed + 1/4 * linespeed
+				# turn a little less when the outermost sensor value is lower to alllow for slighter adjustments
+				else
+					motor.left.target = linespeed - (id-1)*20
+				end
+			# turn right if the robot's left side is closer to the leader
+			else
+				motor.left.target = 0
+				# turn more when the outermost sensor value is higher
+				if prox.horizontal[4] < prox.horizontal[3] then
+					motor.right.target = linespeed + 1/4 * linespeed - (id-1)*20
+				# turn a little less when the outermost sensor value is lower to alllow for slighter adjustments
+				else
+					motor.right.target = linespeed - (id-1)*20
+				end
+			end
+		else
+			# the robot is not going backwards, i.e. forwards or turn
+			if backprotocol == 0 then
+				# if the robot is too close to an obstacle in front, it starts moving backwards
+				if prox.horizontal[1] > maxdistance and prox.horizontal[3]> maxdistance then
+					backprotocol = 1
+					if followed == 1 then
+						motor.left.target = leaderspeed
+						motor.right.target = leaderspeed
+					else
+						motor.left.target = searchspeed
+						motor.right.target = searchspeed
+					end
+				# if the robot has something directly in front or slightly to the left and closer than the maximal permitted distance, it turns quickly to the right and turns red
+				elseif prox.horizontal[2] > maxdistance or prox.horizontal[1] > maxdistance then
+					motor.right.target = 0
+					if followed == 1 then
+						motor.left.target = leaderspeed + 1/4 * leaderspeed
+					else
+						motor.left.target = searchspeed+ 1/4 * searchspeed
+					end
+				# if the robot has something slightly to the right and closer than the maximal permitted distance, it turns quickly to the left and turns yellow
+				elseif  prox.horizontal[3] > maxdistance then
+					motor.left.target = 0
+					if followed == 1 then
+						motor.right.target = leaderspeed + 1/4 * leaderspeed
+					else
+						motor.right.target = searchspeed + 1/4 * searchspeed
+					end
+				# if the robot has something on its far left, it turns right more slowly and turns purple
+				elseif prox.horizontal[0] > maxdistance then
+					motor.right.target = 0
+					if followed == 1 then
+						motor.left.target = leaderspeed
+					else
+						motor.left.target = searchspeed
+					end
+				# if the robot has something on its far right, it turns left more slowly and turns green
+				elseif  prox.horizontal[4] > maxdistance then
+					motor.left.target = 0
+					if followed == 1 then
+						motor.right.target = leaderspeed
+					else
+						motor.right.target = searchspeed
+					end
+				# if there is nothing in front of the robot, it moves straight und turns cyan
+				else
+					if followed == 1 then
+						motor.left.target = leaderspeed
+						motor.right.target = leaderspeed
+					else
+						motor.left.target = searchspeed
+						motor.right.target = searchspeed
+					end
+				end
+			# the robot is moving backwards
+			else
+				call leds.top(0,0,32)
+				counter++
+				# move backwards while the counter has not reached its maximum and there is nothing behind the robot
+				if counter < countermax and prox.horizontal[5] < 3300 and prox.horizontal[6] < 3300 then
+					if followed == 1 then
+						motor.left.target = -leaderspeed
+						motor.right.target = -leaderspeed
+					else
+						motor.left.target = -searchspeed
+						motor.right.target = -searchspeed
+					end
+				# turn right once the counter has reached the countermax (plus error margin)
+				elseif counter >= countermax and counter < (countermax +5) then
+					motor.right.target = 0
+					if followed == 1 then
+						motor.left.target = leaderspeed
+					else
+						motor.left.target = searchspeed
+					end
+				# once the turn is complete, the robot starts moving straight forward again and the counter is reset
+				elseif counter >=  (countermax + 5) then
+					if followed == 1 then
+						motor.left.target = leaderspeed
+						motor.right.target = leaderspeed
+					else
+						motor.left.target = searchspeed
+						motor.right.target = searchspeed
+					end
+					backprotocol = 0
+					counter = 0
+				end
+			end
+		end
+	#///////////////////////////////////////////////////////////////////////ID establishment
+	else
+		if id == 0 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+			id = 1
+			# send out the robot's ID
+			prox.comm.tx = id
+		# if ID != 1 and no neighbours behind or if ID == 1 and neighbours behind, re-establish the IDs
+		elseif( id != 1 and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10)) then
+			id = 1
+			emit recountID
+		end
+		
+			# if the robot does not have any neighbours, its ID is reset to 0.
+		if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
+			id = 0
+			call leds.top(32,32,32)
+		end
+	end # END from the movement/id if 
+	
+	#////////////////////////////////////////////////////////////////////check for missing neighbours
+	# if there are no neighbours, set happiness to -1 and reset both prevval and nextval
+	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
+		happiness = -1
+		nextval = 0
+		prevval = 0
+	# if there is no neighbour in front but one behind, reset nextval to 0
+	elseif (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  then
+		nextval = 0
+	# if there is no neighbour behind but one in front, reset prevval to 0
+	elseif ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or(prox.horizontal[6] < 10 and prox.horizontal[6] > -10))  then
+		prevval = 0
+	end
+	
+	#////////////////////////////////////////////////////////////////////broadcasting ID
+	# if the robot has an ID, it broadcasts its value and its ID. That way, the receiving robots can check if they should consider the value
+	if id !=0 then
+		emit neighbour_value [id, value]
+	end
+	
+	#////////////////////////////////////////////////////////////////////check for change
+	# checking if there have been any changes to the neighbours will influence the happiness as the happiness is only decreased if there is no change.
+	# if the saved and the current value of the previous and the subsequent robot are the same, no change has been made
+	if prevval == prevsave and nextval == nextsave then
+		change = 0
+	# if one or both values are different, then there has been some change,  the saved states are updated and the changerateupdate value is reset to the max
+	else
+		change = 1
+		changerateupdate = changeratemax
+		prevsave = prevval
+		nextsave = nextval
+	end
+	
+	#////////////////////////////////////////////////////////////////////establish happiness
+	# if there has not been any change since the last time the happiness was established, the happiness is gradually reduced to help the user to possibly determine where the error might lie. However, happiness is only actually decreased if the changerate is not zero, thus giving the option to disable the decrease. If there has not been any change since the last time this section was executed, the happiness is gradually reduced to help the user to possibly determine where the error might lie. However, happiness is only actually decreased if the changerate is not zero.
+ 	if change == 0 then
+ 		if happiness > 0  then
+ 			if changerateupdate % changerate == 0 then
+ 				 happiness = happiness-1
+ 			end
+ 			changerateupdate--
+ 		# if the robot is too unhappy, it walks away. the movement stops after a while. This is taken care of in the prox block
+ 		elseif happiness == 0 then
+ 			# if there is nothing in front of it, it walks straight ahead
+ 			if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) then
+ 				motor.left.target = searchspeed
+ 				motor.right.target = searchspeed
+ 			# if there is something in front but nothing at the back, it moves straight backwards
+ 			elseif (prox.horizontal[5] < 10 and prox.horizontal[5] > -10) and (prox.horizontal[6] < 10 and prox.horizontal[6] > -10) then
+ 				motor.left.target = -searchspeed
+ 				motor.right.target = -searchspeed
+ 			# if it is in the middle of two robots, it turns right
+ 			else
+ 				motor.left.target = searchspeed
+ 				motor.right.target = 0
+ 			end
+ 		end
+ 	
+ 	 # checks if the robot's neighbours are matches according to the solution word. If both neighbours are perfect, happiness = -2. If the robot has two neighbours, it does the sum. If the robot only has one neighbour, the other side is considered an empty space. If the robot does not have neighbours, happiness = -1. If the robot is in a perfect solution environment, happiness = -2
+ 	else
+ 		# checks the current neighbours against all solution environments that have been identified. If it finds a perfect match, happiness is set to -2
+ 		if solutionAvailable == 1 then
+ 			i = 0
+ 			prevMatch = 0
+ 			nextMatch = 0
+ 			fullMatch = 0
+ 			while i < numberOfMatches do
+ 				if (prevval != 0 and solutionPrevs[i] == prevval) or (prevval == 0 and solutionPrevs[i] == 26) then
+ 					prevMatch = i+1
+ 				end
+ 				if (nextval != 0 and solutionNexts[i] == nextval) or (nextval == 0 and solutionNexts[i] == 26) then
+ 					nextMatch = i+1
+ 				end
+ 				if prevMatch == nextMatch and prevMatch != 0 and nextMatch != 0 then
+ 					fullMatch = 1
+ 				end
+ 				i++
+ 			end
+ 		end
+ 		# actual happines computation/setting
+ 		if fullMatch == 1 then
+ 			happiness = -2
+ 		elseif prevval != 0 and nextval != 0 then
+ 			happiness = prev[prevval-65] + next[nextval-65]
+ 		elseif nextval != 0 then
+ 			happiness = prev[26] + next[nextval-65]
+ 		elseif prevval != 0 then
+ 			happiness = prev[prevval-65] + next[26]
+ 		else
+ 			happiness = -1
+ 		end
+ 	end
+
+	#/////////////////////////////////////////////////////////////////////colour scheme
+	# if there is no hint being displayed, depending on the happiness value, the top leds light up in a different colour. cyan = perfect; no neighbours = blue; happy = green; ok = yellow; red = unhappy. If sound is enabled, a sound is produced upon change of neighbour
+	if happiness == -2 then
+		call leds.top(0,32,32)
+		if (change == 1 or oldhappinessgroup != -2) and sound == 1 then
+			call sound.system(7)
+			oldhappinessgroup = -2
+		end
+	elseif happiness == -1 then
+		call leds.top(32,32,32)
+		oldhappinessgroup = -1
+	elseif  happiness > 200 then
+		call leds.top(0,32,0)
+		if (change == 1 or oldhappinessgroup != 1) and sound == 1 then
+			call sound.system(7)
+			oldhappinessgroup = 1
+		end
+	elseif  happiness > 100 then
+		call leds.top(32,32,0)
+		if (change == 1 or oldhappinessgroup != 2) and sound == 1 then
+			call sound.system(6)
+			oldhappinessgroup = 2
+		end
+	else
+		call leds.top(32,0,0)
+		if (change == 1 or oldhappinessgroup != 3) and sound == 1 then
+			call sound.system(4)
+			oldhappinessgroup = 3
+		end
+	end
+
+#----------------------------------------------------------------------------END PROX BLOCK-------------------------------------------------------------------------------
+
+
+#----------------------------------------------------------------------------V A L U E   H A N D L I N G----------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN NEIGHBOUR BLOCK---------------------------------------------------------------------	
+# whenever the robot receives a neighbour_value event, it checks if it is entitled to handle these events. For that, it needs to have an id, i.e. it needs to be in the line. If it is in the line, it checks if the value is relevant to it. Only the direct neighbours values are considered relevant. These are the robots with the IDs that are the robot's own ID +/-1. If that is the case, the values for the previous or next robot are updated accordingly. As the IDs count upwards from the end, the value is assigned to prevval if it is lower and to nextval if it is higher
+onevent neighbour_value # takes 2 arguments: ID and value
+	if id != 0 then
+		if event.args[0] == id-1 then
+			prevval = event.args[1]
+		elseif  event.args[0] == id+1 then
+			nextval = event.args[1]
+		end
+	end
+
+#----------------------------------------------------------------------------END NEIGHBOUR BLOCK-----------------------------------------------------------------------
+
+#--------------------------------------------------------------------------P R O X C O M M-----------------------------------------------------------------------------------------
+onevent prox.comm
+	if prox.comm.rx == 2056 then
+		id = 0
+		emit recountID
+		motor.left.target = 0
+		motor.right.target = 0
+		moving = 0
+	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
+	elseif  id == 0 and prox.comm.rx != 0 and ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
+		id = prox.comm.rx + 1
+		# send out the robot's ID
+		prox.comm.tx = id
+	# if the robot has an ID but receives an unexpected ID, the IDs need to be re-established as it is likely that the order has changed
+	elseif id != 0 and prox.comm.rx != (id-1) and prox.comm.rx != (id+1) and prox.comm.rx != 0 then
+		id = 0
+		motor.left.target = 0
+		motor.right.target = 0
+		moving = 0
+		emit recountID
+	end
+	
+	
+#----------------------------------------------------------------------------R E C O U N T I D--------------------------------------------------------------------------------------	
+# set ID back to 0 and pass the message on
+onevent recountID
+	if ((prox.horizontal[5] < 10 and prox.horizontal[5] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) and (prox.horizontal[2] > 10 or prox.horizontal[2] < -10) then
+		if id != 1 then
+			id = 1
+			# send out the robot's ID
+			prox.comm.tx = id
+		end
+	elseif  id > 1 then
+		id = 0
+		# send out the robot's ID
+		prox.comm.tx = id
+	end
+	
+onevent timer0
+			call math.rand(factor)
+			if factor < 0 then
+				factor = factor * -1
+			end
+			call math.sqrt(factor,factor)
+			searchspeed = minsearchspeed + factor
