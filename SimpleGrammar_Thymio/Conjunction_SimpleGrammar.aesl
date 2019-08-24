@@ -1,5 +1,5 @@
-#And
 # CONJUNCTION
+# this is the representation of a conjunction in a very simple grammar that only allows a limited number of fixed constructions. Combine the robot executing this program with others to see grammaticality judgements being made by the robots.
 
 #----------------------------------------------------------------------------I N I T----------------------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------BEGIN INITIALISATION-------------------------------------------------------------------------------
@@ -19,13 +19,13 @@ var phraseComplete = 0	# if the phrase is complete
 var constructionComplete = 0	# if the whole construction is complete
 var phraseIDsInPhrase[2]	# where the IDs of all absorbed phrases are stored
 var highestpid = 0	# highest phraseID below the current robot
-var phrasestart = -1
-var phraseend = -1
-var phrasecore = -1
-var updateComplete = 1
-var upscalable = 1		# is another increment possible?
-var updateSuccessful = 0
-var higherPhrase = 0
+var phrasestart = -1	# the ID of the first robot in the robot's phrase (where it is the core, is not updated if the robot is absorbed by a higher phrase)
+var phraseend = -1	# the ID of the last robot in the robot's phrase (where it is the core, is not updated if the robot is absorbed by a higher phrase)
+var phrasecore = -1	# when waiting for a decision from another robot, the ID of that robot is stored in this variable
+var updateComplete = 1	# if a decision has been received for the latest request
+var upscalable = 1		# if the robot's phrase is ready to be absorbed, i.e. if there are no further increments to the robot's own phrase possible
+var updateSuccessful = 0	# if the received information fits into the robot's requirements, i.e. if the sender has become part of the robot's own phrase
+var higherPhrase = 0	# does the robot belong to another phrase
 var cu = 0		# keep sending out checkupdate events?
 var bl = 0			# keep sending out the block event?
 var lastPhraseAddition = 0	# ID of the core of the last phrase added
@@ -51,7 +51,7 @@ var i = 0
 var j = 0
 
 # completion check variables: be can be used as a transitive or intransitive verb in some circumstances
-var cons2comp[] = [0,class,0]
+var cons2comp[] = [0,class,0]	# construction + CONJ + construction	
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------functions----------------------------------------------------------------------------------------------------
@@ -63,9 +63,11 @@ call leds.top(0,0,0)
 call prox.comm.enable(1)
 
 #----------------------------------------------------------------------------END INITIALISATION----------------------------------------------------------------------------------
-
+#----------------------------------------------------------------------------P R O X-----------------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------BEGIN PROX BLOCK--------------------------------------------------------------------------------------------------
 onevent prox	
-	
+	#/////////////////////////////////////////////////////////////////store current values before update
+	# these old values are used for comparison to check if a reset is needed		
 	oldid = id
 	oldpid = pid
 
@@ -98,7 +100,9 @@ onevent prox
 	if oldid != id and oldpid != pid then
 		callsub reset
 	end
-	#///////////////////////////////////////////////////////
+	
+	#/////////////////////////////////////////////////////////////////establish phraseID
+	# the phraseID represents the phrase that the robot belongs to. As it is updated when a robot is absorbed, it should only be changed to the value of the pid when the robot is not part of a higher phrase
 	if higherPhrase != 1  then
 		phraseID = pid
 		if coreclass == 1 then
@@ -110,11 +114,12 @@ onevent prox
 		end
 	end
 		
-		
-		if phraseID == -2 then
+	# if the robot is not part of a phrase, it is absorbable
+	if phraseID == -2 then
 			upscalable = 1
-		end
+	end
 
+	#//////////////////////////////////////////sending out informtion to core of potential higher phrase to join
 	if cu == 1 or updateComplete == 0 then
 		if phraseend != -1 and phraseend != 0 then
 			emit checkUpdate [id, phrasecore, maxclass, phraseend]
@@ -123,32 +128,40 @@ onevent prox
 		end
 	end
 	
-		if bl == 1 then
+
+	if bl == 1 then
 		emit block [id, phrasecore, maxclass]
 	end
 	
-	
+	#//////////////////////////////////////////sending out a blocking message to a robot requesting to absorb the robot/the robot's phrase when being absorbed would be impossible	
 	if phraseID <= 0 then
 		phraseComplete = 0
 	end
 		
+	#//////////////////////////////////////////phraseComplete/constructionComplete
+	# if the conjunction serves as the core of a construction and the construction is complete, the robot sends a confirmation to both the lefthand and righthand parts.
 	if constructionComplete == 1 then
 		emit constructionComplete [phraseIDsInPhrase[0]]
 		emit constructionComplete [phraseIDsInPhrase[1]]
+	# if the phrase is complete, emit the relevant event
 	elseif phraseComplete == 1 then
 		emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
 	end
 	
-	
+	#//////////////////////////////////////////check if the robot's phrase is ready to be absorbed
+	# if the robot's phrase is complete and there is no robot in front of it and one in the back, it is ready to be absorbed.
 	if phraseComplete == 1 and (prox.horizontal[2] < 10 and prox.horizontal[2] > -10) and  ((prox.horizontal[5] > 10 or prox.horizontal[6] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
 		upscalable = 1
 	end
 	
+	#///////////////////////////////////////////check if last robot in line
+	# if the robot does not have a robot in front of it, it informs all other robots by sending them its ID with the relevant event. The other robots then check if this ID == phraseend
 	if  prox.horizontal[2] < 10 and prox.horizontal[2] > -10 then
 		emit endOfLine [id]
 	end
 	
-	# if there are no neighbours, set colour to white
+	#///////////////////////////////////////////colour scheme and reset if no neihbours
+	# if there are no neighbours, set colour to white and reset everything
 	if (prox.horizontal[2] < 10 and prox.horizontal[2] > -10)  and ((prox.horizontal[5] < 10 and prox.horizontal[6] > -10) or (prox.horizontal[6] < 10 and prox.horizontal[6] > -10)) then
 		id = 0
 		upscalable = 1
@@ -165,11 +178,10 @@ onevent prox
 	end
 
 
+#----------------------------------------------------------------------------END PROX BLOCK--------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------C O M M U N I C A T I O N----------------------------------------------------------------------------------
-#-----------------------------------------------------------------------BOTTOM LAYER COMMUNICATION------------------------------------------------------------------------
-# BOTTOM LAYER COMMUNICATION
-
-
+#-----------------------------------------------------------------------BEGIN BOTTOM LAYER COMMUNICATION------------------------------------------------------------------------
+#-----------------------------------------------------------------------prox.comm-------------------------------------------------------------------------------------------------------------
 onevent prox.comm
 	# if the robot does not have an ID yet and it receives a message, it increments the senderID and stores it as its own
 	if  id == 0 and prox.comm.rx != 0 and ((prox.horizontal[5] > 10 or prox.horizontal[5] < -10) or (prox.horizontal[6] > 10 or prox.horizontal[6] < -10)) then
@@ -186,6 +198,7 @@ onevent prox.comm
 		callsub reset
 	end
 	
+#----------------------------------------------------------------------recountID---------------------------------------------------------------------------------------------------	
 # set ID back to 0 and pass the message on
 onevent recountID
 	pid = 0
@@ -204,10 +217,8 @@ onevent recountID
 	callsub reset
 
 
-#-------------------------------------------------------------------------TOP LAYER COMMUNICATION--------------------------------------------------------------------------------
-# TOP LAYER COMMUNICATION
-
-
+#-----------------------------------------------------------------------END BOTTOM LAYER COMMUNICATION------------------------------------------------------------------------	
+#-----------------------------------------------------------------------BEGIN TOP LAYER COMMUNICATION-------------------------------------------------------------------------
 # neighbour_value [id{0}, maxphraseid{1}]
 onevent neighbour_value
 	if id == event.args[0]+1 then
@@ -223,10 +234,11 @@ onevent neighbour_value
 	end
 	
 	
+#-------------------------------------------------------------------------END TOP LAYER COMMUNICATION--------------------------------------------------------------------------------
 #-----------------------------------------------------------------G R A M M A T I C A L I T Y    J U D G E M E N T S----------------------------------------------------------------
-#-----------------------------------------------------------------SEARCH EVENTS------------------------------------------------------------------------------------------------------
-# conjunctions can only be a part of a full construction, a PP or and ADJP
-#	emit searchNextCompletion [id{0}, phraseID{1}, phraseend{2}, 	phrasetype{3}]
+#-----------------------------------------------------------------BEGIN SEARCH EVENTS------------------------------------------------------------------------------------------------------
+# conjunctions can complete phrases on either side
+# emit searchNextCompletion [id{0}, phraseID{1}, phrasestart{2}, phrasetype{3}]
 onevent searchNextCompletion
 	if  phraseID != event.args[1] and maxclass == class and upscalable == 1 and  updateComplete == 1 and (event.args[3] ==  100 or event.args[3] == 103 or event.args[3] == 104)  and event.args[2] == id-1 then
 		phrasecore = event.args[0]
@@ -252,7 +264,8 @@ onevent searchPrevCompletion
 #----------------------------------------------------------------UPDATES----------------------------------------------------------------------------------------------------------------
 # since it's not a core class, no messages are sent back and checkUpdate does not need to be handled
 
-# if the robot's phrase is absorbed, the supercede event informs it of the update
+#-------------------------------------------------------------------------------------supercede------------------------------------------------------------------------------------------------
+# if the robot's phrase is absorbed, the supercede event informs it of the update. Sent by the core of the phrase
 # emit supercede [id{0}, oldphraseID{1}, phraseID{2}, phrasetype{3}, phraseComplete{4}, upscalable{5}]
 onevent supercede
 	if event.args[1] == phraseID then
@@ -273,11 +286,15 @@ onevent supercede
 		end
 	end
 
-# emit phraseComplete [phraseID, upscalable, phrasetype, phrasestart, phraseend]
+#-------------------------------------------------------------------------------------phraseComplete---------------------------------------------------------------------------------------------
+# if the phrase containing the robot is complete, the robot is informed and updates its information accordingly.
+# Since conjunctions are a special case that can both be a non-core part of phrases and the glue that holds a construction together, the necessary checks for the latter are performed in this method.
+# emit phraseComplete [phraseID[0], upscalable[1], phrasetype[2], phrasestart[3], phraseend[4]]
 onevent phraseComplete
 	if event.args[0] == phraseID then
 		phraseComplete = 1
 		upscalable = event.args[1]
+	# if the conjunction serves as a link for a construction - checks for the phrase following the conjunction
 	elseif event.args[3] == id + 1 and (event.args[2] == 102 or event.args[2] == 105 or event.args[2] == 100) and cons2comp[2] == 0 then
 		higherPhrase = 1
 		phrasetype = 100
@@ -296,6 +313,7 @@ onevent phraseComplete
 			phraseComplete = 0
 			constructionComplete = 0
 		end
+	# if the conjunction serves as a link for a construction - checks for the phrase preceding the conjunction
 	elseif event.args[4] == id -1 and (event.args[2] == 102 or event.args[2] == 105 or event.args[2] == 100) and cons2comp[0] == 0 then
 		higherPhrase = 1
 		phrasetype = 100
@@ -316,16 +334,21 @@ onevent phraseComplete
 		end
 	end
 	
+#-------------------------------------------------------------------------------------constructionComplete---------------------------------------------------------------------------------------	
+# if the construction containing the robot is complete, the robot is informed and updates its information accordingly
 # emit constructionComplete [phraseID]
 onevent constructionComplete
 	if event.args[0] == phraseID and phrasetype != 100 then
 		constructionComplete = 1
 		upscalable = 1
 	end
-	
-# block is also only relevant for core classes
-#	emit block [id, phrasecore, maxclass]	
 
+#-------------------------------------------------------------------------------------block------------------------------------------------------------------------------------------------------	
+# block is also only relevant for core classes
+
+
+#-------------------------------------------------------------------------------------endOfLine--------------------------------------------------------------------------------------------------
+# only relevant when the conjunction serves as a link for a construction, the robot checks if its phraseend is the last robot in the line. If that is the case, its construction is complete and it emits the appropriate event	
 # emit endOfLine [id{0}]	
 onevent endOfLine
 	if event.args[0] == phraseend and phrasestart == 1 and phraseComplete == 1 then
@@ -339,8 +362,10 @@ onevent endOfLine
 		eol = 0
 	end
 
-#-------------------------------------------------------------RESPONSES------------------------------------------------------------------------------------------------------------------
-#	emit successfulUpdateConfirmation [id{0}, event.args[0]{1}, phraseID{2}, phrasetype{3}, phraseComplete{4}, upscalable{5}]
+#-------------------------------------------------------------END UPDATES----------------------------------------------------------------------------------------------------------------	
+#-------------------------------------------------------------BEGIN RESPONSES------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------successfulUpdateConfirmation-----------------------------------------------------------------------------------------------
+# emit successfulUpdateConfirmation [id{0}, event.args[0]{1}, phraseID{2}, phrasetype{3}, phraseComplete{4}, upscalable{5}]
 # if the phrasecore confirms the update, the robot updates its own data
 onevent successfulUpdateConfirmation
 	if event.args[0] == phrasecore and event.args[1] == id and phraseID != event.args[2]  then
@@ -364,7 +389,8 @@ onevent successfulUpdateConfirmation
 		end
 	end
 
-#if the phrasecore declines the update, the robot switches back into considering other search events
+#--------------------------------------------------------------updateDeclination---------------------------------------------------------------------------------------------------------
+# if the phrasecore declines the update, the robot switches back into considering other search events
 #	emit updateDeclination [senderid, targetid]
 onevent updateDeclination
 	if event.args[0] == phrasecore and event.args[1] == id then
@@ -373,7 +399,10 @@ onevent updateDeclination
 		updateComplete = 1
 	end
 	
+#----------------------------------------------------------------END RESPONSES------------------------------------------------------------------------------------------------------------	
 #----------------------------------------------------------------R E S E T T I N G-----------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------BEGIN RESET------------------------------------------------------------------------------------------------------------
+# resetting all values
 sub reset
 	cons2comp = [0,class,0]
 	phraseIDsInPhrase = [0,0]

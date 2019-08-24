@@ -25,7 +25,7 @@ var vp11[] = [101,17,10,3,101,103]	# NP + do + NEG + transV + NP + PP
 var vp12[] = [101,17,10,16,101,101,103]	#NP + do + NEG + transV2 + NP + NP + PP
 var vp13[] = [101,4,10]	# NP + be + NEG
 var vp14[] = [101,4,10,104]	#NP + be + NEG + ADJP
-var vp15[] = [101,4,10,101]	#NP + be + NEG + ADJP
+var vp15[] = [101,4,10,101]	#NP + be + NEG + NP
 
 # PPs: 103
 var pp0[] = [11,101]	# P + NP
